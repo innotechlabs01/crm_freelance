@@ -57,7 +57,7 @@ frontend.
 
 **Features:** Client management, invoice generator, basic dashboard.
 
-### 2.2 Professional — $24,900 COP/month
+### 2.2 Professional — $24.99 USD/month
 
 | Limit | Value |
 |-------|-------|
@@ -68,7 +68,7 @@ frontend.
 **Features:** Everything in Free + AI Assistant, Cash Flow, Advanced Reports,
 Custom PDF Branding, Automated Reminders, Payment Tracking.
 
-### 2.3 Enterprise — $79,900 COP/month
+### 2.3 Enterprise — $79.99 USD/month
 
 **Features:** Everything in Professional + Multi-user, Teams, Roles, White Label,
 Advanced Analytics, API Access.
@@ -133,7 +133,7 @@ CREATE TABLE plans (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL,                -- 'free', 'professional', 'enterprise'
   display_name    TEXT NOT NULL,                -- 'Free', 'Profesional', 'Empresarial'
-  price           INT NOT NULL DEFAULT 0,       -- in COP
+  price           INT NOT NULL DEFAULT 0,       -- in USD cents
   stripe_price_id TEXT,                         -- Stripe Price ID
   max_clients     INT,                          -- NULL = unlimited
   max_invoices_per_month INT,                   -- NULL = unlimited
@@ -290,10 +290,10 @@ Before creating invoice:
 
 ### 6.1 Products (configured in Stripe Dashboard)
 
-| Product Key | Name | Price (COP) |
+| Product Key | Name | Price (USD) |
 |------------|------|-------------|
-| `professional_monthly` | FreelanceCRM Professional | 24,900 COP/month |
-| `enterprise_monthly` | FreelanceCRM Enterprise | 79,900 COP/month |
+| `professional_monthly` | FreelanceCRM Professional | $24.99 USD/month |
+| `enterprise_monthly` | FreelanceCRM Enterprise | $79.99 USD/month |
 
 ### 6.2 Environment Variables
 

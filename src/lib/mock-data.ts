@@ -31,7 +31,7 @@ export const PRIORITY_BADGE: Record<string, { color: string; label: string }> = 
 };
 
 export const fmtCurrency = (n: number): string =>
-  "$ " + n.toLocaleString("es-CO");
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n / 100);
 
 export const getInitials = (name: string): string =>
   name

@@ -82,7 +82,7 @@ export default function AdminDashboard() {
         },
         {
           label: 'Total Revenue',
-          value: `$${Math.round(totalRevenue / 1000).toLocaleString()}k`,
+          value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalRevenue / 100),
           change: '',
           icon: DollarSign,
           color: 'text-emerald-400',
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
       const now = new Date()
       const currentMonthIdx = now.getMonth()
       const revenueChart = months.map((m, i) => {
-        if (i === currentMonthIdx) return { month: m, value: Math.round(monthlyRevenueAmounts / 1000) }
+        if (i === currentMonthIdx) return { month: m, value: Math.round(monthlyRevenueAmounts / 100) }
         return { month: m, value: 0 }
       })
       setMonthlyRevenue(revenueChart)
@@ -192,7 +192,7 @@ export default function AdminDashboard() {
               {monthlyRevenue.map((item) => (
                 <div key={item.month} className="flex flex-1 flex-col items-center gap-1.5">
                   <span className="text-[10px] font-medium text-muted-foreground">
-                    ${item.value}k
+                    ${item.value}
                   </span>
                   <div
                     className="w-full rounded-t-md bg-primary/60 hover:bg-primary/80 transition-colors"

@@ -7,11 +7,13 @@ export async function POST(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { planId } = await request.json();
+  const { planId, planName } = await request.json();
 
   const result = await db.execute({
-    sql: 'SELECT * FROM plans WHERE id = ?',
-    args: [planId],
+    sql: planId
+      ? 'SELECT * FROM plans WHERE id = ? AND is_active = 1'
+      : 'SELECT * FROM plans WHERE name = ? AND is_active = 1',
+    args: [planId || planName],
   });
   const plan = result.rows[0];
   if (!plan || !plan.stripe_price_id) {
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/configuracion?upgrade=cancelled`,
     client_reference_id: userId,
     customer: customerId,
-    metadata: { userId, planId },
+    metadata: { userId, plan_id: plan.id as string },
   });
 
   return NextResponse.json({ url: session.url });

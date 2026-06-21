@@ -15,12 +15,12 @@ export default async function seedDatabase(): Promise<void> {
     {
       sql: `INSERT OR IGNORE INTO plans (id, name, display_name, price, stripe_price_id, max_clients, max_invoices_per_month, features_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [proPlanId, 'professional', 'Professional', 24900, 'price_professional_placeholder', -1, -1, '["create_client","create_invoice","view_basic_dashboard","ai_access","reminders","advanced_reports","cashflow","pdf_branding","payment_tracking","unlimited_clients","unlimited_invoices"]'],
+      args: [proPlanId, 'professional', 'Professional', 2499, 'price_professional_monthly_usd', -1, -1, '["create_client","create_invoice","view_basic_dashboard","ai_access","reminders","advanced_reports","cashflow","pdf_branding","payment_tracking","unlimited_clients","unlimited_invoices"]'],
     },
     {
       sql: `INSERT OR IGNORE INTO plans (id, name, display_name, price, stripe_price_id, max_clients, max_invoices_per_month, features_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [enterprisePlanId, 'enterprise', 'Enterprise', 79900, 'price_enterprise_placeholder', -1, -1, '["create_client","create_invoice","view_basic_dashboard","ai_access","reminders","advanced_reports","cashflow","pdf_branding","payment_tracking","manage_team","manage_roles","white_label","api_access","unlimited_clients","unlimited_invoices"]'],
+      args: [enterprisePlanId, 'enterprise', 'Enterprise', 7999, 'price_enterprise_monthly_usd', -1, -1, '["create_client","create_invoice","view_basic_dashboard","ai_access","reminders","advanced_reports","cashflow","pdf_branding","payment_tracking","manage_team","manage_roles","white_label","api_access","unlimited_clients","unlimited_invoices"]'],
     },
   ]);
 

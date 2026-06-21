@@ -345,11 +345,11 @@ export default function ConfiguracionPage() {
                   <div>
                     <p className="text-sm font-medium">Moneda</p>
                     <p className="text-xs text-muted-foreground">
-                      Peso Colombiano
+                      Dólar Estadounidense
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-medium">COP</span>
+                <span className="text-xs font-medium">USD</span>
               </div>
             </CardContent>
           </Card>

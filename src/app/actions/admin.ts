@@ -4,6 +4,23 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db/client';
 import { clerkClient } from '@clerk/nextjs/server';
 
+async function requireAdmin(): Promise<{ authorized: boolean; error?: string }> {
+  const { userId } = await auth();
+  if (!userId) return { authorized: false, error: 'No autorizado' };
+
+  const result = await db.execute({
+    sql: `SELECT 1 FROM user_roles ur JOIN roles r ON ur.role_id = r.id
+          WHERE ur.user_id = ? AND r.name = 'ENTERPRISE_OWNER'`,
+    args: [userId],
+  });
+
+  if (result.rows.length === 0) {
+    return { authorized: false, error: 'Acceso denegado: se requiere rol de administrador' };
+  }
+
+  return { authorized: true };
+}
+
 export interface AdminUser {
   id: string;
   name: string;
@@ -67,8 +84,8 @@ export interface AuditLogEntry {
 // -- Users (via Clerk API) --
 export async function getAdminUsers(): Promise<{ success: boolean; data?: AdminUser[]; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     const client = await clerkClient();
     const clerkUsers = await client.users.getUserList({ limit: 50 });
@@ -102,15 +119,15 @@ export async function getAdminUsers(): Promise<{ success: boolean; data?: AdminU
 
     return { success: true, data: users };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 // -- Tickets --
 export async function getAdminTickets(): Promise<{ success: boolean; data?: AdminTicket[]; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     const result = await db.execute({
       sql: 'SELECT * FROM support_tickets ORDER BY created_at DESC',
@@ -134,14 +151,14 @@ export async function getAdminTickets(): Promise<{ success: boolean; data?: Admi
 
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 export async function updateTicketStatus(id: string, status: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     await db.execute({
       sql: 'UPDATE support_tickets SET status = ?, updated_at = datetime(\'now\') WHERE id = ?',
@@ -150,15 +167,15 @@ export async function updateTicketStatus(id: string, status: string): Promise<{ 
 
     return { success: true };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 // -- Subscriptions --
 export async function getAdminSubscriptions(): Promise<{ success: boolean; data?: AdminSubscription[]; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     const result = await db.execute({
       sql: `SELECT s.id, s.user_id, p.display_name as plan_name, p.price, s.status, s.starts_at, s.renewal_at
@@ -187,15 +204,15 @@ export async function getAdminSubscriptions(): Promise<{ success: boolean; data?
 
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 // -- Incidents --
 export async function getAdminIncidents(): Promise<{ success: boolean; data?: AdminIncident[]; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     const result = await db.execute({
       sql: 'SELECT * FROM incidents ORDER BY detected_at DESC',
@@ -215,15 +232,15 @@ export async function getAdminIncidents(): Promise<{ success: boolean; data?: Ad
 
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 // -- Feature Flags --
 export async function getFeatureFlags(): Promise<{ success: boolean; data?: FeatureFlag[]; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     const result = await db.execute({
       sql: 'SELECT * FROM feature_flags ORDER BY name ASC',
@@ -240,14 +257,14 @@ export async function getFeatureFlags(): Promise<{ success: boolean; data?: Feat
 
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 export async function toggleFeatureFlag(id: string, enabled: boolean): Promise<{ success: boolean; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     await db.execute({
       sql: 'UPDATE feature_flags SET enabled = ?, updated_at = datetime(\'now\') WHERE id = ?',
@@ -256,15 +273,15 @@ export async function toggleFeatureFlag(id: string, enabled: boolean): Promise<{
 
     return { success: true };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 // -- Audit Logs --
 export async function getAuditLogs(): Promise<{ success: boolean; data?: AuditLogEntry[]; error?: string }> {
   try {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: 'No autorizado' };
+    const admin = await requireAdmin();
+    if (!admin.authorized) return { success: false, error: admin.error };
 
     const result = await db.execute({
       sql: 'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 50',
@@ -283,6 +300,6 @@ export async function getAuditLogs(): Promise<{ success: boolean; data?: AuditLo
 
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }

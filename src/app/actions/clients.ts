@@ -3,6 +3,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db/client';
 import { getInitials, getClientColor } from '@/lib/mock-data';
+import { getUserPlan, getClientCount } from '@/lib/auth';
 import type { Client } from '@/types';
 
 function rowToClient(row: Record<string, unknown>): Client {
@@ -39,7 +40,7 @@ export async function getClients(): Promise<{ success: boolean; data?: Client[];
     const data = result.rows.map(rowToClient);
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -47,6 +48,18 @@ export async function createClient(form: Omit<Client, 'id' | 'totalInvoiced' | '
   try {
     const { userId } = await auth();
     if (!userId) return { success: false, error: 'No autorizado' };
+
+    // Server-side plan limit enforcement
+    const userPlan = await getUserPlan(userId);
+    if (userPlan) {
+      const maxClients = userPlan.max_clients as number;
+      if (maxClients > 0) {
+        const count = await getClientCount(userId);
+        if (count >= maxClients) {
+          return { success: false, error: 'Has alcanzado el limite de clientes de tu plan' };
+        }
+      }
+    }
 
     const initials = getInitials(form.name);
     const color = getClientColor(form.name);
@@ -59,7 +72,7 @@ export async function createClient(form: Omit<Client, 'id' | 'totalInvoiced' | '
 
     return { success: true, data: { ...form, id: Number(result.lastInsertRowid), totalInvoiced: 0, status: 'active', color, initials } };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -79,7 +92,7 @@ export async function updateClient(id: number, form: Omit<Client, 'id' | 'totalI
 
     return { success: true, data: { ...form, id, totalInvoiced: 0, status: 'active', color, initials } };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -95,6 +108,6 @@ export async function deleteClient(id: number): Promise<{ success: boolean; erro
 
     return { success: true };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }

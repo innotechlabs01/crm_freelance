@@ -30,9 +30,9 @@ CRM SaaS para freelancers colombianos. Gestiona clientes, genera cuentas de cobr
 
 | Plan | Precio | Límites |
 |------|--------|---------|
-| **Free** | $0 COP | 1 cliente, 3 facturas/mes, dashboard básico |
-| **Profesional** | $24,900 COP/mes | Clientes ilimitados, facturas ilimitadas, IA, recordatorios, reportes avanzados, PDF con marca |
-| **Empresarial** | $79,900 COP/mes | Todo lo anterior + white label, API access, gestión de equipo, roles personalizados |
+| **Free** | $0 USD | 1 cliente, 3 facturas/mes, dashboard básico |
+| **Profesional** | $24.99 USD/mes | Clientes ilimitados, facturas ilimitadas, IA, recordatorios, reportes avanzados, PDF con marca |
+| **Empresarial** | $79.99 USD/mes | Todo lo anterior + white label, API access, gestión de equipo, roles personalizados |
 
 ## Requisitos previos
 

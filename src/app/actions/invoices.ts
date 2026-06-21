@@ -2,6 +2,7 @@
 
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db/client';
+import { getUserPlan, getMonthlyInvoiceCount } from '@/lib/auth';
 import type { Invoice } from '@/types';
 
 function rowToInvoice(row: Record<string, unknown>): Invoice {
@@ -35,7 +36,7 @@ export async function getInvoices(): Promise<{ success: boolean; data?: Invoice[
     const data = result.rows.map(rowToInvoice);
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -55,6 +56,18 @@ export async function createInvoice(payload: {
   try {
     const { userId } = await auth();
     if (!userId) return { success: false, error: 'No autorizado' };
+
+    // Server-side plan limit enforcement
+    const userPlan = await getUserPlan(userId);
+    if (userPlan) {
+      const maxInvoices = userPlan.max_invoices_per_month as number;
+      if (maxInvoices > 0) {
+        const count = await getMonthlyInvoiceCount(userId);
+        if (count >= maxInvoices) {
+          return { success: false, error: 'Has alcanzado el limite mensual de facturas de tu plan' };
+        }
+      }
+    }
 
     // Generate invoice number
     const countResult = await db.execute({
@@ -76,10 +89,10 @@ export async function createInvoice(payload: {
       args: [invoiceId, userId, payload.clientId, payload.clientName, payload.fechaEmision, payload.fechaVencimiento, totalVal, payload.concepto, payload.priority, payload.descripcion, baseVal, ivaVal, retVal, totalVal],
     });
 
-    // Update client total invoiced
+    // Update client total invoiced (with ownership check)
     await db.execute({
-      sql: 'UPDATE clients SET total_invoiced = total_invoiced + ?, updated_at = datetime(\'now\') WHERE id = ?',
-      args: [totalVal, payload.clientId],
+      sql: 'UPDATE clients SET total_invoiced = total_invoiced + ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?',
+      args: [totalVal, payload.clientId, userId],
     });
 
     const invoice: Invoice = {
@@ -100,7 +113,7 @@ export async function createInvoice(payload: {
 
     return { success: true, data: invoice };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -116,7 +129,7 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
 
     return { success: true };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -132,6 +145,6 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean; err
 
     return { success: true };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }

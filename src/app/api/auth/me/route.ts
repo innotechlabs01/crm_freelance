@@ -52,7 +52,6 @@ export async function GET() {
   const subscription = planRow ? {
     status: planRow.sub_status,
     renewal_at: planRow.renewal_at,
-    stripe_customer_id: planRow.stripe_customer_id,
   } : null;
 
   const permissions = permResult.rows.map(r => r.name as string);

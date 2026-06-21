@@ -245,8 +245,8 @@ const PRICING_PLANS = [
   },
   {
     name: 'Profesional',
-    monthlyPrice: 24900,
-    yearlyPrice: 19920,
+    monthlyPrice: 2499,
+    yearlyPrice: 1999,
     desc: 'Para freelancers que trabajan de forma constante.',
     features: [
       'Clientes ilimitados',
@@ -265,8 +265,8 @@ const PRICING_PLANS = [
   },
   {
     name: 'Empresarial',
-    monthlyPrice: 79900,
-    yearlyPrice: 63920,
+    monthlyPrice: 7999,
+    yearlyPrice: 6399,
     desc: 'Para equipos y agencias con múltiples colaboradores.',
     features: [
       'Todo Profesional',
@@ -1189,30 +1189,30 @@ function CRMFeatures() {
                     title: 'Pendiente',
                     count: 3,
                     items: [
-                      { name: 'María López', amount: '$850.000', date: 'Vence 20 Jun', color: 'text-primary' },
-                      { name: 'Carlos Ruiz', amount: '$1.2M', date: 'Vence 25 Jun', color: 'text-primary' },
+                      { name: 'María López', amount: '$850.00', date: 'Vence 20 Jun', color: 'text-primary' },
+                      { name: 'Carlos Ruiz', amount: '$1,200.00', date: 'Vence 25 Jun', color: 'text-primary' },
                     ],
                   },
                   {
                     title: 'Enviada',
                     count: 2,
                     items: [
-                      { name: 'Ana García', amount: '$400.000', date: 'Enviada 10 Jun', color: 'text-primary' },
+                      { name: 'Ana García', amount: '$400.00', date: 'Enviada 10 Jun', color: 'text-primary' },
                     ],
                   },
                   {
                     title: 'Por Vencer',
                     count: 1,
                     items: [
-                      { name: 'Studio 3', amount: '$890.000', date: 'Vence mañana', color: 'text-warning' },
+                      { name: 'Studio 3', amount: '$890.00', date: 'Vence mañana', color: 'text-warning' },
                     ],
                   },
                   {
                     title: 'Pagada',
                     count: 4,
                     items: [
-                      { name: 'Mentoons', amount: '$1.5M', date: 'Pagado 01 Jun', color: 'text-secondary' },
-                      { name: 'Buildco', amount: '$650.000', date: 'Pagado 28 May', color: 'text-secondary' },
+                      { name: 'Mentoons', amount: '$1,500.00', date: 'Pagado 01 Jun', color: 'text-secondary' },
+                      { name: 'Buildco', amount: '$650.00', date: 'Pagado 28 May', color: 'text-secondary' },
                     ],
                   },
                 ].map((col) => (
@@ -1506,9 +1506,9 @@ function FinancialIntelligence() {
             </div>
             <div className="flex flex-col gap-2.5">
               {[
-                { initials: 'PM', name: 'Pedro Martínez', amount: '$6.8M', color: '#2563EB' },
-                { initials: 'ML', name: 'María López', amount: '$5.2M', color: '#10B981' },
-                { initials: 'CR', name: 'Carlos Ruiz', amount: '$3.2M', color: '#F59E0B' },
+                { initials: 'PM', name: 'Pedro Martínez', amount: '$6,800.00', color: '#2563EB' },
+                { initials: 'ML', name: 'María López', amount: '$5,200.00', color: '#10B981' },
+                { initials: 'CR', name: 'Carlos Ruiz', amount: '$3,200.00', color: '#F59E0B' },
               ].map((c) => (
                 <div key={c.name} className="flex items-center gap-2.5">
                   <div
@@ -1646,7 +1646,8 @@ function PricingSection() {
   const [annual, setAnnual] = useState(false)
   const router = useRouter()
 
-  const fmtPeso = (n: number) => '$' + n.toLocaleString('es-CO')
+  const fmtPeso = (n: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n / 100)
 
   return (
     <section id="pricing" className="py-24 bg-muted/30">

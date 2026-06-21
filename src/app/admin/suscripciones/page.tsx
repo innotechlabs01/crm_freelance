@@ -81,8 +81,8 @@ function statusBadgeColor(status: string): string {
 }
 
 function fmtExact(n: number): string {
-  if (n === 0) return '$0'
-  return '$' + n.toLocaleString('en-US')
+  if (n === 0) return '$0.00'
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n / 100)
 }
 
 function mapSub(s: AdminSubscription): Subscription {

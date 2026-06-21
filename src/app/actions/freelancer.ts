@@ -33,7 +33,7 @@ export async function getFreelancerProfile(): Promise<{ success: boolean; data?:
 
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -55,7 +55,7 @@ export async function saveFreelancerProfile(profile: Freelancer): Promise<{ succ
 
     return { success: true };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -80,7 +80,7 @@ export async function getPaymentMethods(): Promise<{ success: boolean; data?: { 
 
     return { success: true, data };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -109,7 +109,7 @@ export async function getNotificationPrefs(): Promise<{ success: boolean; data?:
       },
     };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }
 
@@ -132,6 +132,6 @@ export async function saveNotificationPrefs(prefs: { paymentReminders: boolean; 
 
     return { success: true };
   } catch (e) {
-    return { success: false, error: String(e) };
+    return { success: false, error: 'Error interno del servidor' };
   }
 }

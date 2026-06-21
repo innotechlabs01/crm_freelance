@@ -47,6 +47,7 @@ export function UpgradeModal({ open, onClose, reason, featureName }: UpgradeModa
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planName: 'professional' }),
       })
 
       if (!res.ok) {

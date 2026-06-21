@@ -34,30 +34,44 @@ export async function POST(request: NextRequest) {
         if (!userId || !planId) break
 
         const customerId = session.customer as string
+        const subId = crypto.randomUUID()
+        const auditId = crypto.randomUUID()
 
-        await db.execute(
-          `INSERT INTO subscriptions (user_id, stripe_customer_id, status, plan_id, renewal_at)
-           VALUES (?, ?, 'active', ?, datetime('now', '+30 days'))
-           ON CONFLICT(user_id) DO UPDATE SET
-             stripe_customer_id = excluded.stripe_customer_id,
-             status = 'active',
-             plan_id = excluded.plan_id,
-             renewal_at = datetime('now', '+30 days'),
-             updated_at = datetime('now')`,
-          [userId, customerId, planId],
-        )
+        // Upsert subscription: check if user already has one
+        const existingSub = await db.execute({
+          sql: 'SELECT id FROM subscriptions WHERE user_id = ?',
+          args: [userId],
+        })
 
-        await db.execute(
-          `INSERT INTO user_roles (user_id, role) VALUES (?, 'PROFESSIONAL_USER')
-           ON CONFLICT(user_id) DO NOTHING`,
-          [userId],
-        )
+        if (existingSub.rows.length > 0) {
+          await db.execute({
+            sql: `UPDATE subscriptions SET
+                    stripe_customer_id = ?, status = 'active', plan_id = ?,
+                    renewal_at = datetime('now', '+30 days'), updated_at = datetime('now')
+                  WHERE user_id = ?`,
+            args: [customerId, planId, userId],
+          })
+        } else {
+          await db.execute({
+            sql: `INSERT INTO subscriptions (id, user_id, stripe_customer_id, status, plan_id, renewal_at)
+                  VALUES (?, ?, ?, 'active', ?, datetime('now', '+30 days'))`,
+            args: [subId, userId, customerId, planId],
+          })
+        }
 
-        await db.execute(
-          `INSERT INTO audit_logs (user_id, action, details, created_at)
-           VALUES (?, 'subscription_created', ?, datetime('now'))`,
-          [userId, JSON.stringify({ plan_id: planId, stripe_customer_id: customerId })],
-        )
+        // Assign role using role_id lookup
+        await db.execute({
+          sql: `INSERT OR IGNORE INTO user_roles (user_id, role_id)
+                SELECT ?, r.id FROM roles r WHERE r.name = 'PROFESSIONAL_USER'`,
+          args: [userId],
+        })
+
+        // Audit log with correct column names
+        await db.execute({
+          sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
+                VALUES (?, ?, 'subscription_created', ?, datetime('now'))`,
+          args: [auditId, userId, JSON.stringify({ plan_id: planId, stripe_customer_id: customerId })],
+        })
 
         break
       }
@@ -65,7 +79,6 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
-        // current_period_end lives on subscription items in this API version
         const periodEnd: InValue =
           (subscription.items?.data[0] as unknown as Record<string, unknown> | undefined)
             ?.current_period_end as number | undefined ??
@@ -92,19 +105,20 @@ export async function POST(request: NextRequest) {
           [customerId],
         )
 
-        await db.execute(
-          `UPDATE user_roles SET role = 'FREE_USER' WHERE user_id = (
-             SELECT user_id FROM subscriptions WHERE stripe_customer_id = ?
-           )`,
-          [customerId],
-        )
+        // Downgrade role using role_id lookup
+        await db.execute({
+          sql: `UPDATE user_roles SET role_id = (SELECT id FROM roles WHERE name = 'FREE_USER')
+                WHERE user_id = (SELECT user_id FROM subscriptions WHERE stripe_customer_id = ?)`,
+          args: [customerId],
+        })
 
-        await db.execute(
-          `INSERT INTO audit_logs (user_id, action, details, created_at)
-           SELECT user_id, 'subscription_cancelled', '{}', datetime('now')
-           FROM subscriptions WHERE stripe_customer_id = ?`,
-          [customerId],
-        )
+        // Audit log with correct column names
+        await db.execute({
+          sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
+                SELECT ?, user_id, 'subscription_cancelled', '{}', datetime('now')
+                FROM subscriptions WHERE stripe_customer_id = ?`,
+          args: [crypto.randomUUID(), customerId],
+        })
 
         break
       }
@@ -124,12 +138,12 @@ export async function POST(request: NextRequest) {
           [periodEnd, customerId],
         )
 
-        await db.execute(
-          `INSERT INTO audit_logs (user_id, action, details, created_at)
-           SELECT user_id, 'invoice_paid', ?, datetime('now')
-           FROM subscriptions WHERE stripe_customer_id = ?`,
-          [JSON.stringify({ invoice_id: invoice.id, amount: invoice.amount_paid }), customerId],
-        )
+        await db.execute({
+          sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
+                SELECT ?, user_id, 'invoice_paid', ?, datetime('now')
+                FROM subscriptions WHERE stripe_customer_id = ?`,
+          args: [crypto.randomUUID(), JSON.stringify({ invoice_id: invoice.id, amount: invoice.amount_paid }), customerId],
+        })
 
         break
       }
@@ -143,18 +157,18 @@ export async function POST(request: NextRequest) {
           [customerId],
         )
 
-        await db.execute(
-          `INSERT INTO audit_logs (user_id, action, details, created_at)
-           SELECT user_id, 'invoice_payment_failed', ?, datetime('now')
-           FROM subscriptions WHERE stripe_customer_id = ?`,
-          [JSON.stringify({ invoice_id: invoice.id }), customerId],
-        )
+        await db.execute({
+          sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
+                SELECT ?, user_id, 'invoice_payment_failed', ?, datetime('now')
+                FROM subscriptions WHERE stripe_customer_id = ?`,
+          args: [crypto.randomUUID(), JSON.stringify({ invoice_id: invoice.id }), customerId],
+        })
 
         break
       }
     }
   } catch (err) {
-    console.error('Webhook handler error:', err)
+    console.error('Webhook handler error:', err instanceof Error ? err.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 

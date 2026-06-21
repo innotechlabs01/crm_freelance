@@ -75,9 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canAccess = useCallback((p: string) => permissions.includes(p), [permissions]);
   const planName = plan?.name || 'free';
-  const isFree = planName === 'free';
-  const isProfessional = planName === 'professional';
-  const isEnterprise = planName === 'enterprise';
+  const subStatus = subscription?.status || 'inactive';
+  const isPaidActive = subStatus === 'active' || subStatus === 'trialing';
+  const isFree = planName === 'free' || !isPaidActive;
+  const isProfessional = planName === 'professional' && isPaidActive;
+  const isEnterprise = planName === 'enterprise' && isPaidActive;
 
   return (
     <AuthContext.Provider value={{ user, plan, subscription, permissions, isLoading, canAccess, isFree, isProfessional, isEnterprise, clientCount, monthlyInvoiceCount, refreshLimits }}>
