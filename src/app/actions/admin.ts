@@ -1,11 +1,12 @@
 'use server';
 
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/server-auth';
 import { db } from '@/db/client';
+import { withRateLimit, rateLimitAuthenticated, RateLimitError } from '@/lib/rate-limit';
 import { clerkClient } from '@clerk/nextjs/server';
 
 async function requireAdmin(): Promise<{ authorized: boolean; error?: string }> {
-  const { userId } = await auth();
+  const userId = await getAuthUserId();
   if (!userId) return { authorized: false, error: 'No autorizado' };
 
   const result = await db.execute({
@@ -160,13 +161,21 @@ export async function updateTicketStatus(id: string, status: string): Promise<{ 
     const admin = await requireAdmin();
     if (!admin.authorized) return { success: false, error: admin.error };
 
-    await db.execute({
-      sql: 'UPDATE support_tickets SET status = ?, updated_at = datetime(\'now\') WHERE id = ?',
-      args: [status, id],
-    });
+    const userId = await getAuthUserId();
+    if (!userId) return { success: false, error: 'No autorizado' };
 
-    return { success: true };
+    return withRateLimit(userId, rateLimitAuthenticated, async () => {
+      await db.execute({
+        sql: 'UPDATE support_tickets SET status = ?, updated_at = datetime(\'now\') WHERE id = ?',
+        args: [status, id],
+      });
+
+      return { success: true };
+    });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -266,13 +275,21 @@ export async function toggleFeatureFlag(id: string, enabled: boolean): Promise<{
     const admin = await requireAdmin();
     if (!admin.authorized) return { success: false, error: admin.error };
 
-    await db.execute({
-      sql: 'UPDATE feature_flags SET enabled = ?, updated_at = datetime(\'now\') WHERE id = ?',
-      args: [enabled ? 1 : 0, id],
-    });
+    const userId = await getAuthUserId();
+    if (!userId) return { success: false, error: 'No autorizado' };
 
-    return { success: true };
+    return withRateLimit(userId, rateLimitAuthenticated, async () => {
+      await db.execute({
+        sql: 'UPDATE feature_flags SET enabled = ?, updated_at = datetime(\'now\') WHERE id = ?',
+        args: [enabled ? 1 : 0, id],
+      });
+
+      return { success: true };
+    });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
     return { success: false, error: 'Error interno del servidor' };
   }
 }

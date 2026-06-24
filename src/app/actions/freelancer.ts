@@ -1,12 +1,13 @@
 'use server';
 
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/server-auth';
 import { db } from '@/db/client';
+import { withRateLimit, rateLimitWrite, RateLimitError } from '@/lib/rate-limit';
 import type { Freelancer } from '@/types';
 
 export async function getFreelancerProfile(): Promise<{ success: boolean; data?: Freelancer; error?: string }> {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
 
     const result = await db.execute({
@@ -39,29 +40,34 @@ export async function getFreelancerProfile(): Promise<{ success: boolean; data?:
 
 export async function saveFreelancerProfile(profile: Freelancer): Promise<{ success: boolean; error?: string }> {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
 
-    await db.execute({
-      sql: `INSERT INTO freelancer_profiles (user_id, name, company, nit, email, phone, address, bank, account_type, account_number)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-            name=excluded.name, company=excluded.company, nit=excluded.nit, email=excluded.email,
-            phone=excluded.phone, address=excluded.address, bank=excluded.bank,
-            account_type=excluded.account_type, account_number=excluded.account_number,
-            updated_at=datetime('now')`,
-      args: [userId, profile.name, profile.company || '', profile.nit, profile.email, profile.phone, profile.address || '', profile.bank || '', profile.accountType || 'ahorros', profile.accountNumber || ''],
-    });
+    return withRateLimit(userId, rateLimitWrite, async () => {
+      await db.execute({
+        sql: `INSERT INTO freelancer_profiles (user_id, name, company, nit, email, phone, address, bank, account_type, account_number)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+              name=excluded.name, company=excluded.company, nit=excluded.nit, email=excluded.email,
+              phone=excluded.phone, address=excluded.address, bank=excluded.bank,
+              account_type=excluded.account_type, account_number=excluded.account_number,
+              updated_at=datetime('now')`,
+        args: [userId, profile.name, profile.company || '', profile.nit, profile.email, profile.phone, profile.address || '', profile.bank || '', profile.accountType || 'ahorros', profile.accountNumber || ''],
+      });
 
-    return { success: true };
+      return { success: true };
+    });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
     return { success: false, error: 'Error interno del servidor' };
   }
 }
 
 export async function getPaymentMethods(): Promise<{ success: boolean; data?: { id: string; name: string; bank: string; accountType: string; accountNumber: string; phone: string }[]; error?: string }> {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
 
     const result = await db.execute({
@@ -86,7 +92,7 @@ export async function getPaymentMethods(): Promise<{ success: boolean; data?: { 
 
 export async function getNotificationPrefs(): Promise<{ success: boolean; data?: { paymentReminders: boolean; paymentConfirmations: boolean; weeklySummary: boolean; systemUpdates: boolean }; error?: string }> {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
 
     const result = await db.execute({
@@ -115,23 +121,28 @@ export async function getNotificationPrefs(): Promise<{ success: boolean; data?:
 
 export async function saveNotificationPrefs(prefs: { paymentReminders: boolean; paymentConfirmations: boolean; weeklySummary: boolean; systemUpdates: boolean }): Promise<{ success: boolean; error?: string }> {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
 
-    await db.execute({
-      sql: `INSERT INTO notification_prefs (user_id, payment_reminders, payment_confirmations, weekly_summary, system_updates)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-            payment_reminders=excluded.payment_reminders,
-            payment_confirmations=excluded.payment_confirmations,
-            weekly_summary=excluded.weekly_summary,
-            system_updates=excluded.system_updates,
-            updated_at=datetime('now')`,
-      args: [userId, prefs.paymentReminders ? 1 : 0, prefs.paymentConfirmations ? 1 : 0, prefs.weeklySummary ? 1 : 0, prefs.systemUpdates ? 1 : 0],
-    });
+    return withRateLimit(userId, rateLimitWrite, async () => {
+      await db.execute({
+        sql: `INSERT INTO notification_prefs (user_id, payment_reminders, payment_confirmations, weekly_summary, system_updates)
+              VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+              payment_reminders=excluded.payment_reminders,
+              payment_confirmations=excluded.payment_confirmations,
+              weekly_summary=excluded.weekly_summary,
+              system_updates=excluded.system_updates,
+              updated_at=datetime('now')`,
+        args: [userId, prefs.paymentReminders ? 1 : 0, prefs.paymentConfirmations ? 1 : 0, prefs.weeklySummary ? 1 : 0, prefs.systemUpdates ? 1 : 0],
+      });
 
-    return { success: true };
+      return { success: true };
+    });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
     return { success: false, error: 'Error interno del servidor' };
   }
 }
