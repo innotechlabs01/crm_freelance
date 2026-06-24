@@ -54,7 +54,7 @@ export interface KpiData {
   icon: string;
   iconBg: string;
   color: string;
-  chartData: number[];
+  chartData: number[] | null;
 }
 
 export interface Freelancer {

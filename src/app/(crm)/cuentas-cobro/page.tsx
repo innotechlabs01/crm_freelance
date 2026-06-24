@@ -204,17 +204,7 @@ export default function CuentasCobroPage() {
   };
 
   const handleGenerateAI = () => {
-    if (!aiPrompt.trim()) return;
-    setAiLoading(true);
-    setAiResult(null);
-    setTimeout(() => {
-      setAiLoading(false);
-      setAiResult({
-        concepto: "Servicios profesionales de consultoría",
-        descripcion: aiPrompt,
-        valorSugerido: 3500000,
-      });
-    }, 2000);
+    toast.info("La generación con IA estará disponible próximamente.");
   };
 
   const handleUseAIData = () => {

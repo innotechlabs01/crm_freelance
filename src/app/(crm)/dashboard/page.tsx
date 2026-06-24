@@ -331,8 +331,6 @@ export default function DashboardPage() {
     (inv) => inv.status === "paid"
   );
 
-  const fallbackSpark = [8, 12, 10, 15, 13, 18, 20];
-
   const hasSpark = (arr: number[]) => arr.some((v) => v > 0);
 
   const kpis: KpiData[] = [
@@ -344,7 +342,7 @@ export default function DashboardPage() {
       icon: "TrendingUp",
       iconBg: "rgba(37,99,235,0.1)",
       color: "var(--primary)",
-      chartData: hasSpark(facturadoSpark) ? facturadoSpark : fallbackSpark,
+      chartData: hasSpark(facturadoSpark) ? facturadoSpark : null,
     },
     {
       label: "Cobrado Hoy",
@@ -354,7 +352,7 @@ export default function DashboardPage() {
       icon: "CheckCircle",
       iconBg: "rgba(16,185,129,0.1)",
       color: "var(--secondary)",
-      chartData: hasSpark(cobradoSpark) ? cobradoSpark : [5, 9, 7, 12, 10, 15, 16],
+      chartData: hasSpark(cobradoSpark) ? cobradoSpark : null,
     },
     {
       label: "Pendiente por Cobrar",
@@ -364,7 +362,7 @@ export default function DashboardPage() {
       icon: "Clock",
       iconBg: "rgba(245,158,11,0.1)",
       color: "var(--warning)",
-      chartData: hasSpark(pendienteSpark) ? pendienteSpark : [12, 14, 11, 16, 13, 9, 10],
+      chartData: hasSpark(pendienteSpark) ? pendienteSpark : null,
     },
     {
       label: "Clientes Activos",
@@ -374,7 +372,7 @@ export default function DashboardPage() {
       icon: "Users",
       iconBg: "rgba(139,92,246,0.1)",
       color: "#8B5CF6",
-      chartData: fallbackSpark,
+      chartData: null,
     },
   ];
 
@@ -428,7 +426,13 @@ export default function DashboardPage() {
                   >
                     <Icon className="size-4" style={{ color: kpi.color }} />
                   </div>
-                  <Sparkline data={kpi.chartData} color={kpi.color} />
+                  {kpi.chartData !== null ? (
+                    <Sparkline data={kpi.chartData} color={kpi.color} />
+                  ) : (
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      Sin datos
+                    </span>
+                  )}
                 </div>
                 <div>
                   <p className="text-2xl font-bold tracking-tight">
