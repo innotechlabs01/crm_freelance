@@ -56,6 +56,10 @@ Thumbs.db
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
+/.test.db
+/.test.db-journal
 
 # debug & logs
 npm-debug.log*
@@ -103,3 +107,6 @@ credentials/
 # Keep example env files
 !.env.example
 !.env.local.example
+
+# clerk configuration (can include secrets)
+/.clerk/
