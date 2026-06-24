@@ -11,6 +11,18 @@ const nextConfig: NextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.clerk.accounts.dev *.stripe.com",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: *.clerk.accounts.dev",
+              "font-src 'self'",
+              "connect-src 'self' *.clerk.accounts.dev *.stripe.com *.upstash.io",
+              "frame-ancestors 'none'",
+            ].join('; '),
+          },
         ],
       },
     ];
