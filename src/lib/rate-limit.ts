@@ -1,10 +1,16 @@
+import 'server-only';
+
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+const url = process.env.UPSTASH_REDIS_REST_URL;
+const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+if (!url || !token) {
+  throw new Error('Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN environment variable');
+}
+
+const redis = new Redis({ url, token });
 
 export const rateLimitAuthenticated = new Ratelimit({
   redis,
@@ -28,7 +34,7 @@ export const rateLimitStripe = new Ratelimit({
 });
 
 export class RateLimitError extends Error {
-  retryAfter: number;
+  retryAfter!: number;
   constructor(retryAfter: number) {
     super(`Rate limit exceeded. Retry after ${retryAfter}s.`);
     this.retryAfter = retryAfter;
