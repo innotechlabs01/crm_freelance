@@ -72,7 +72,7 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   return NextResponse.next();
-});
+}, { publicRoutes });
 
 export const config = {
   matcher: [
