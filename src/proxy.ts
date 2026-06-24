@@ -11,18 +11,43 @@ const publicRoutes = createRouteMatcher([
 
 const blockedRoutes = ['/api/seed', '/api/migrate'];
 
-export default clerkMiddleware(async (auth, request) => {
-  const url = request.nextUrl;
-  const pathname = url.pathname;
+function rateLimitExceeded(reset: number): NextResponse {
+  const retryAfter = Math.ceil((reset - Date.now()) / 1000);
+  return new NextResponse(JSON.stringify({
+    error: 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.',
+    retryAfter,
+  }), {
+    status: 429,
+    headers: {
+      'Content-Type': 'application/json',
+      'Retry-After': String(retryAfter),
+    },
+  });
+}
 
-  // Test mode: bypass everything
-  if (process.env.PLAYWRIGHT_TEST === '1') {
-    return NextResponse.next();
+async function tryLimit(limiter: { limit: (key: string) => Promise<{ success: boolean; reset: number }> }, key: string): Promise<NextResponse | null> {
+  try {
+    const { success, reset } = await limiter.limit(key);
+    if (!success) {
+      return rateLimitExceeded(reset);
+    }
+  } catch {
+    // Fail open: allow the request through if Redis is unavailable
   }
+  return null;
+}
 
-  // Block sensitive endpoints
+export default clerkMiddleware(async (auth, request) => {
+  const pathname = request.nextUrl.pathname;
+
+  // Block sensitive endpoints (always, even in test mode)
   if (blockedRoutes.some((r) => pathname.startsWith(r))) {
     return new NextResponse('Forbidden', { status: 403 });
+  }
+
+  // Test mode: bypass rate limiting and auth
+  if (process.env.PLAYWRIGHT_TEST === '1') {
+    return NextResponse.next();
   }
 
   // Rate limit by IP for public routes
@@ -31,50 +56,14 @@ export default clerkMiddleware(async (auth, request) => {
     || 'unknown';
 
   if (pathname.startsWith('/sign-in')) {
-    const { success, reset } = await rateLimitSignIn.limit(ip);
-    if (!success) {
-      const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-      return new NextResponse(JSON.stringify({
-        error: 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.',
-        retryAfter,
-      }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': String(retryAfter),
-        },
-      });
-    }
+    const res = await tryLimit(rateLimitSignIn, ip);
+    if (res) return res;
   } else if (pathname.startsWith('/sign-up')) {
-    const { success, reset } = await rateLimitSignUp.limit(ip);
-    if (!success) {
-      const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-      return new NextResponse(JSON.stringify({
-        error: 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.',
-        retryAfter,
-      }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': String(retryAfter),
-        },
-      });
-    }
+    const res = await tryLimit(rateLimitSignUp, ip);
+    if (res) return res;
   } else if (publicRoutes(request)) {
-    const { success, reset } = await rateLimitPublic.limit(ip);
-    if (!success) {
-      const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-      return new NextResponse(JSON.stringify({
-        error: 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.',
-        retryAfter,
-      }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': String(retryAfter),
-        },
-      });
-    }
+    const res = await tryLimit(rateLimitPublic, ip);
+    if (res) return res;
   }
 
   // Protect non-public routes with Clerk
