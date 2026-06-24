@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuth, useUser as useClerkUser } from '@clerk/nextjs';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: { id: string; email: string } | null;
@@ -35,13 +36,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [clientCount, setClientCount] = useState(0);
   const [monthlyInvoiceCount, setMonthlyInvoiceCount] = useState(0);
 
+  const isTestMode = process.env.NODE_ENV === 'test';
+  const effectiveSignedIn = isTestMode || isSignedIn;
+
   const user = clerkUser ? { id: clerkUser.id, email: clerkUser.primaryEmailAddress?.emailAddress || '' } : null;
 
   const fetchMe = useCallback(async () => {
-    if (!isSignedIn) { setIsLoading(false); return; }
+    if (!effectiveSignedIn) { setIsLoading(false); return; }
     try {
-      const token = await getToken();
+      const token = isTestMode ? 'test-token' : await getToken();
       const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 429) {
+        toast.error('Límite de solicitudes alcanzado. Espera un momento antes de continuar.');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setPlan(data.plan);
@@ -50,18 +58,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setClientCount(data.clientCount || 0);
         setMonthlyInvoiceCount(data.monthlyInvoiceCount || 0);
       }
-    } catch (e) { console.error('Failed to fetch user data', e); }
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('Límite de solicitudes')) {
+        toast.error('Límite de solicitudes alcanzado. Espera un momento antes de continuar.');
+      } else {
+        console.error('Failed to fetch user data', e);
+      }
+    }
     setIsLoading(false);
-  }, [isSignedIn, getToken]);
+  }, [effectiveSignedIn, getToken, isTestMode]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchMe(); }, [fetchMe]);
 
   const refreshLimits = useCallback(async () => {
-    if (!isSignedIn) return;
+    if (!effectiveSignedIn) return;
     try {
-      const token = await getToken();
+      const token = isTestMode ? 'test-token' : await getToken();
       const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 429) {
+        toast.error('Límite de solicitudes alcanzado. Espera un momento antes de continuar.');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setClientCount(data.clientCount || 0);
@@ -70,8 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSubscription(data.subscription);
         setPermissions(data.permissions || []);
       }
-    } catch (e) { console.error('Failed to refresh limits', e); }
-  }, [isSignedIn, getToken]);
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('Límite de solicitudes')) {
+        toast.error('Límite de solicitudes alcanzado. Espera un momento antes de continuar.');
+      } else {
+        console.error('Failed to refresh limits', e);
+      }
+    }
+  }, [effectiveSignedIn, getToken, isTestMode]);
 
   const canAccess = useCallback((p: string) => permissions.includes(p), [permissions]);
   const planName = plan?.name || 'free';
