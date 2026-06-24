@@ -6,28 +6,24 @@ import { Redis } from '@upstash/redis';
 const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-if (!url || !token) {
-  throw new Error('Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN environment variable');
-}
-
-const redis = new Redis({ url, token });
+const redis = url && token ? new Redis({ url, token }) : null;
 
 export const rateLimitAuthenticated = new Ratelimit({
-  redis,
+  redis: redis ?? new Redis({ url: '', token: '' }),
   limiter: Ratelimit.slidingWindow(60, '60 s'),
   analytics: true,
   prefix: 'rl:auth',
 });
 
 export const rateLimitWrite = new Ratelimit({
-  redis,
+  redis: redis ?? new Redis({ url: '', token: '' }),
   limiter: Ratelimit.slidingWindow(30, '60 s'),
   analytics: true,
   prefix: 'rl:write',
 });
 
 export const rateLimitStripe = new Ratelimit({
-  redis,
+  redis: redis ?? new Redis({ url: '', token: '' }),
   limiter: Ratelimit.slidingWindow(5, '60 s'),
   analytics: true,
   prefix: 'rl:stripe',
@@ -47,10 +43,14 @@ export async function withRateLimit<T>(
   limiter: Ratelimit,
   handler: () => Promise<T>
 ): Promise<T> {
-  const { success, reset } = await limiter.limit(identifier);
-  if (!success) {
-    const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-    throw new RateLimitError(retryAfter);
+  try {
+    const { success, reset } = await limiter.limit(identifier);
+    if (!success) {
+      const retryAfter = Math.ceil((reset - Date.now()) / 1000);
+      throw new RateLimitError(retryAfter);
+    }
+  } catch (e) {
+    if (e instanceof RateLimitError) throw e;
   }
   return handler();
 }
