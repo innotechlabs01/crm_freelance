@@ -6,7 +6,7 @@ const publicRoutes = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
-  '/api/stripe/webhook',
+  '/api/lemonsqueezy/webhook',
 ]);
 
 const blockedRoutes = ['/api/seed', '/api/migrate'];

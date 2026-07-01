@@ -27,23 +27,23 @@ test.describe('API Routes', () => {
     })
   })
 
-  test.describe('POST /api/stripe/checkout', () => {
+  test.describe('POST /api/lemonsqueezy/checkout', () => {
     test('debe requerir autenticacion', async ({ request }) => {
-      const response = await request.post('/api/stripe/checkout', {
-        data: { priceId: 'price_test123' },
+      const response = await request.post('/api/lemonsqueezy/checkout', {
+        data: { planName: 'professional' },
       })
       // Should return 401 or redirect to sign-in
       expect(response.status()).toBeGreaterThanOrEqual(400)
     })
   })
 
-  test.describe('POST /api/stripe/webhook', () => {
+  test.describe('POST /api/lemonsqueezy/webhook', () => {
     test('debe ser publica (sin auth)', async ({ request }) => {
-      const response = await request.post('/api/stripe/webhook', {
+      const response = await request.post('/api/lemonsqueezy/webhook', {
         headers: { 'Content-Type': 'application/json' },
         data: JSON.stringify({}),
       })
-      // Without stripe-signature header, should return 400
+      // Without signature header, should return 400
       expect(response.status()).toBe(400)
     })
   })

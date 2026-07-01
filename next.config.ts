@@ -15,11 +15,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.clerk.accounts.dev *.stripe.com",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.clerk.accounts.dev *.lemonsqueezy.com *.lsqy.co",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: *.clerk.accounts.dev",
               "font-src 'self'",
-              "connect-src 'self' *.clerk.accounts.dev *.stripe.com *.upstash.io",
+              "connect-src 'self' *.clerk.accounts.dev *.lemonsqueezy.com *.upstash.io",
               "frame-ancestors 'none'",
             ].join('; '),
           },

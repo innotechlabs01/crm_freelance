@@ -22,11 +22,11 @@ export const rateLimitWrite = new Ratelimit({
   prefix: 'rl:write',
 });
 
-export const rateLimitStripe = new Ratelimit({
+export const rateLimitLemonsqueezy = new Ratelimit({
   redis: redis ?? new Redis({ url: '', token: '' }),
   limiter: Ratelimit.slidingWindow(5, '60 s'),
   analytics: true,
-  prefix: 'rl:stripe',
+  prefix: 'rl:lemonsqueezy',
 });
 
 export class RateLimitError extends Error {

@@ -19,9 +19,9 @@ export async function hasPermission(userId: string, permission: string): Promise
 
 export async function getUserPlan(userId: string) {
   const result = await db.execute({
-    sql: `SELECT p.*, s.status as sub_status, s.stripe_subscription_id, s.renewal_at
-          FROM subscriptions s JOIN plans p ON s.plan_id = p.id
-          WHERE s.user_id = ? ORDER BY s.created_at DESC LIMIT 1`,
+    sql: `SELECT p.*, s.status as sub_status, s.lemonsqueezy_subscription_id, s.renewal_at
+           FROM subscriptions s JOIN plans p ON s.plan_id = p.id
+           WHERE s.user_id = ? ORDER BY s.created_at DESC LIMIT 1`,
     args: [userId],
   });
   return result.rows[0] || null;
