@@ -11,7 +11,7 @@ const TEST_SIGNING_SECRET = process.env.LEMONSQUEEZY_TEST_SIGNING_SECRET
 const API_BASE = 'https://api.lemonsqueezy.com/v1'
 
 function isTestMode(): boolean {
-  return process.env.NODE_ENV === 'development'
+  return !LIVE_API_KEY
 }
 
 function getConfig() {
