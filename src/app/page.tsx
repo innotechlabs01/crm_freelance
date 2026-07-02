@@ -176,7 +176,7 @@ function SectionHeader({ label, title, subtitle }: { label: string; title: strin
 const NAV_LINKS = [
   { label: 'Solución', href: '#solucion' },
   { label: 'CRM', href: '#crm' },
-  { label: 'Precios', href: '#pricing' },
+  { label: 'Precios', href: '/precios' },
   { label: 'Testimonios', href: '#testimonials' },
   { label: 'FAQ', href: '#faq' },
 ]
@@ -1882,9 +1882,15 @@ function Footer() {
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.05em] mb-4">
               Producto
             </h4>
-            {['Características', 'Precios', 'Integraciones', 'API', 'Blog'].map((l) => (
-              <a key={l} href="#" className="block text-sm text-muted-foreground hover:text-foreground py-1.5 transition-colors">
-                {l}
+            {[
+              { label: 'Características', href: '/precios' },
+              { label: 'Precios', href: '/precios' },
+              { label: 'Integraciones', href: '/precios' },
+              { label: 'API', href: '/precios' },
+              { label: 'Blog', href: '/precios' },
+            ].map((l) => (
+              <a key={l.label} href={l.href} className="block text-sm text-muted-foreground hover:text-foreground py-1.5 transition-colors">
+                {l.label}
               </a>
             ))}
           </div>
@@ -1893,9 +1899,15 @@ function Footer() {
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.05em] mb-4">
               Compañía
             </h4>
-            {['Sobre nosotros', 'Política de privacidad', 'Términos y condiciones', 'Contacto', 'Trabaja con nosotros'].map((l) => (
-              <a key={l} href="#" className="block text-sm text-muted-foreground hover:text-foreground py-1.5 transition-colors">
-                {l}
+            {[
+              { label: 'Sobre nosotros', href: '/precios' },
+              { label: 'Política de privacidad', href: '/privacidad' },
+              { label: 'Términos y condiciones', href: '/terminos' },
+              { label: 'Política de reembolso', href: '/reembolsos' },
+              { label: 'Contacto', href: '/precios' },
+            ].map((l) => (
+              <a key={l.label} href={l.href} className="block text-sm text-muted-foreground hover:text-foreground py-1.5 transition-colors">
+                {l.label}
               </a>
             ))}
           </div>
