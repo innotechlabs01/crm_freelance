@@ -6,6 +6,7 @@ export async function GET() {
     await runMigrations();
     return NextResponse.json({ success: true, message: 'Migrations executed' });
   } catch (e) {
-    return NextResponse.json({ success: false, error: 'Error interno del servidor' }, { status: 500 });
+    console.error('[migrate]', e);
+    return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
   }
 }

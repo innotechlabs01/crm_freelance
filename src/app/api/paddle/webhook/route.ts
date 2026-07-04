@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { verifyWebhookSignature } from '@/lib/lemonsqueezy'
-import type { WebhookPayload } from '@/lib/lemonsqueezy'
+import { paddle, getPaddleWebhookSecret, type EventEntity } from '@/lib/paddle'
 import { db } from '@/db/client'
 import {
   sendWelcomeEmail,
@@ -13,43 +12,37 @@ import type { NextRequest } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const sig = request.headers.get('x-signature')
+  const body = await request.text()
+  const signature = request.headers.get('paddle-signature')
 
-  if (!sig) {
-    return NextResponse.json({ error: 'Missing signature header' }, { status: 400 })
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing paddle-signature header' }, { status: 400 })
   }
 
-  const body = await request.text()
-
-  if (!verifyWebhookSignature(body, sig)) {
+  let event: EventEntity
+  try {
+    event = await paddle.webhooks.unmarshal(body, getPaddleWebhookSecret(), signature)
+  } catch {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  let parsed: WebhookPayload
-  try {
-    parsed = JSON.parse(body)
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const eventName = parsed.meta.event_name
-  const customData = parsed.meta.custom_data
-  const subscriptionId = parsed.data.id
-  const attrs = parsed.data.attributes as Record<string, unknown>
+  const eventType = event.eventType
+  const eventData = event.data as unknown as Record<string, unknown>
+  const subscriptionId = eventData.id as string
+  const customData = eventData.customData as { userId?: string } | undefined | null
+  const userId = customData?.userId
 
   try {
-    switch (eventName) {
-      case 'order_created':
-      case 'subscription_created': {
-        const userId = customData?.user_id
-        if (!userId || parsed.data.type !== 'subscriptions') break
+    switch (eventType) {
+      case 'subscription.created': {
+        if (!userId) break
 
-        const status = String(attrs.status || 'active')
-        const renewsAt = attrs.renews_at ? String(attrs.renews_at) : null
-        const userEmail = String(attrs.user_email || '')
+        const status = (eventData.status as string) || 'active'
+        const nextBilledAt = eventData.nextBilledAt as string | null
+        const userEmail = (eventData.email as string) || ''
 
         const subResult = await db.execute({
-          sql: 'SELECT id FROM subscriptions WHERE lemonsqueezy_subscription_id = ?',
+          sql: 'SELECT id FROM subscriptions WHERE paddle_subscription_id = ?',
           args: [subscriptionId],
         })
 
@@ -59,13 +52,13 @@ export async function POST(request: NextRequest) {
             args: ['professional'],
           })
           const planId = planResult.rows[0]?.id
-          const planDisplayName = planResult.rows[0]?.display_name as string || 'Profesional'
+          const planDisplayName = planResult.rows[0]?.display_name as string || 'Professional'
           if (!planId) break
 
           await db.execute({
-            sql: `INSERT INTO subscriptions (id, user_id, plan_id, lemonsqueezy_subscription_id, status, starts_at, renewal_at)
+            sql: `INSERT INTO subscriptions (id, user_id, plan_id, paddle_subscription_id, status, starts_at, renewal_at)
                   VALUES (?, ?, ?, ?, ?, datetime('now'), ?)`,
-            args: [crypto.randomUUID(), userId, planId, subscriptionId, status, renewsAt],
+            args: [crypto.randomUUID(), userId, planId, subscriptionId, status, nextBilledAt],
           })
 
           await db.execute({
@@ -78,8 +71,8 @@ export async function POST(request: NextRequest) {
             sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
                   VALUES (?, ?, 'subscription_created', ?, datetime('now'))`,
             args: [crypto.randomUUID(), userId, JSON.stringify({
-              lemonsqueezy_subscription_id: subscriptionId,
-              event: eventName,
+              paddle_subscription_id: subscriptionId,
+              event: eventType,
             })],
           })
 
@@ -90,72 +83,76 @@ export async function POST(request: NextRequest) {
         break
       }
 
-      case 'subscription_payment_success': {
+      case 'transaction.completed': {
+        if (!subscriptionId) break
+
         const subResult = await db.execute({
-          sql: 'SELECT user_id FROM subscriptions WHERE lemonsqueezy_subscription_id = ?',
+          sql: 'SELECT user_id FROM subscriptions WHERE paddle_subscription_id = ?',
           args: [subscriptionId],
         })
 
         if (subResult.rows.length > 0) {
-          const userId = subResult.rows[0].user_id as string
-          const userEmail = String(attrs.user_email || '')
+          const existingUserId = subResult.rows[0].user_id as string
+          const userEmail = (eventData.email as string) || ''
 
           await db.execute({
             sql: `UPDATE subscriptions SET status = 'active',
                     renewal_at = ?,
                     grace_period_ends_at = NULL,
                     updated_at = datetime('now')
-                  WHERE lemonsqueezy_subscription_id = ?`,
-            args: [attrs.renews_at ? String(attrs.renews_at) : null, subscriptionId],
+                  WHERE paddle_subscription_id = ?`,
+            args: [(eventData.nextBilledAt as string) || null, subscriptionId],
           })
 
           await db.execute({
             sql: `INSERT OR IGNORE INTO user_roles (user_id, role_id)
                   SELECT ?, r.id FROM roles r WHERE r.name = 'PROFESSIONAL_USER'`,
-            args: [userId],
+            args: [existingUserId],
           })
 
           await db.execute({
             sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
                   VALUES (?, ?, 'invoice_paid', ?, datetime('now'))`,
-            args: [crypto.randomUUID(), userId, JSON.stringify({
-              lemonsqueezy_subscription_id: subscriptionId,
-              event: eventName,
+            args: [crypto.randomUUID(), existingUserId, JSON.stringify({
+              paddle_subscription_id: subscriptionId,
+              event: eventType,
             })],
           })
 
           if (userEmail) {
-            const planName = String(attrs.product_name || '')
-            sendPaymentSuccessEmail(userEmail, planName)
+            const items = eventData.items as Array<{ price?: { name?: string } }> | undefined
+            sendPaymentSuccessEmail(userEmail, items?.[0]?.price?.name || '')
           }
         }
         break
       }
 
-      case 'subscription_payment_failed': {
+      case 'transaction.payment_failed': {
+        if (!subscriptionId) break
+
         const subResult = await db.execute({
-          sql: 'SELECT user_id, plan_id FROM subscriptions WHERE lemonsqueezy_subscription_id = ?',
+          sql: 'SELECT user_id FROM subscriptions WHERE paddle_subscription_id = ?',
           args: [subscriptionId],
         })
 
         if (subResult.rows.length > 0) {
-          const userId = subResult.rows[0].user_id as string
-          const userEmail = String(attrs.user_email || '')
+          const existingUserId = subResult.rows[0].user_id as string
+          const userEmail = (eventData.email as string) || ''
           const GRACE_DAYS = 7
 
           await db.execute({
             sql: `UPDATE subscriptions SET status = 'past_due',
                     grace_period_ends_at = datetime('now', '+${GRACE_DAYS} days'),
                     updated_at = datetime('now')
-                  WHERE lemonsqueezy_subscription_id = ?`,
+                  WHERE paddle_subscription_id = ?`,
             args: [subscriptionId],
           })
 
           await db.execute({
             sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
                   VALUES (?, ?, 'payment_failed', ?, datetime('now'))`,
-            args: [crypto.randomUUID(), userId, JSON.stringify({
-              lemonsqueezy_subscription_id: subscriptionId,
+            args: [crypto.randomUUID(), existingUserId, JSON.stringify({
+              paddle_subscription_id: subscriptionId,
               grace_period_ends_at: new Date(Date.now() + GRACE_DAYS * 86400000).toISOString(),
             })],
           })
@@ -167,59 +164,59 @@ export async function POST(request: NextRequest) {
         break
       }
 
-      case 'subscription_updated': {
+      case 'subscription.updated': {
+        if (!subscriptionId) break
+
         const subResult = await db.execute({
-          sql: 'SELECT id FROM subscriptions WHERE lemonsqueezy_subscription_id = ?',
+          sql: 'SELECT id FROM subscriptions WHERE paddle_subscription_id = ?',
           args: [subscriptionId],
         })
 
         if (subResult.rows.length > 0) {
-          const status = String(attrs.status || 'active')
-          const renewsAt = attrs.renews_at ? String(attrs.renews_at) : null
-          const endsAt = attrs.ends_at ? String(attrs.ends_at) : null
+          const status = (eventData.status as string) || 'active'
 
           await db.execute({
             sql: `UPDATE subscriptions SET status = ?,
                     renewal_at = ?,
-                    ends_at = ?,
                     updated_at = datetime('now')
-                  WHERE lemonsqueezy_subscription_id = ?`,
-            args: [status, renewsAt, endsAt, subscriptionId],
+                  WHERE paddle_subscription_id = ?`,
+            args: [status, (eventData.nextBilledAt as string) || null, subscriptionId],
           })
         }
         break
       }
 
-      case 'subscription_cancelled':
-      case 'subscription_expired': {
+      case 'subscription.canceled': {
+        if (!subscriptionId) break
+
         const subResult = await db.execute({
-          sql: 'SELECT user_id FROM subscriptions WHERE lemonsqueezy_subscription_id = ?',
+          sql: 'SELECT user_id FROM subscriptions WHERE paddle_subscription_id = ?',
           args: [subscriptionId],
         })
 
         if (subResult.rows.length > 0) {
-          const userId = subResult.rows[0].user_id as string
-          const userEmail = String(attrs.user_email || '')
+          const existingUserId = subResult.rows[0].user_id as string
+          const userEmail = (eventData.email as string) || ''
 
           await db.execute({
             sql: `UPDATE subscriptions SET status = 'canceled',
                     updated_at = datetime('now')
-                  WHERE lemonsqueezy_subscription_id = ?`,
+                  WHERE paddle_subscription_id = ?`,
             args: [subscriptionId],
           })
 
           await db.execute({
             sql: `UPDATE user_roles SET role_id = (SELECT id FROM roles WHERE name = 'FREE_USER')
                   WHERE user_id = ?`,
-            args: [userId],
+            args: [existingUserId],
           })
 
           await db.execute({
             sql: `INSERT INTO audit_logs (id, user_id, action, metadata, created_at)
                   VALUES (?, ?, 'subscription_cancelled', ?, datetime('now'))`,
-            args: [crypto.randomUUID(), userId, JSON.stringify({
-              lemonsqueezy_subscription_id: subscriptionId,
-              reason: eventName,
+            args: [crypto.randomUUID(), existingUserId, JSON.stringify({
+              paddle_subscription_id: subscriptionId,
+              event: eventType,
             })],
           })
 
@@ -231,7 +228,7 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch (err) {
-    console.error('Webhook handler error:', err instanceof Error ? err.message : 'Unknown error')
+    console.error('Paddle webhook handler error:', err instanceof Error ? err.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 

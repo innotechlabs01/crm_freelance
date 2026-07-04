@@ -11,7 +11,7 @@ async function requireAdmin(): Promise<{ authorized: boolean; error?: string }> 
 
   const result = await db.execute({
     sql: `SELECT 1 FROM user_roles ur JOIN roles r ON ur.role_id = r.id
-          WHERE ur.user_id = ? AND r.name = 'ENTERPRISE_OWNER'`,
+          WHERE ur.user_id = ? AND r.name IN ('SUPERADMIN', 'ENTERPRISE_OWNER')`,
     args: [userId],
   });
 

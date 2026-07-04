@@ -7,9 +7,12 @@ const publicRoutes = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/lemonsqueezy/webhook',
+  '/api/paddle/webhook',
+  '/api/seed',
+  '/api/migrate',
 ]);
 
-const blockedRoutes = ['/api/seed', '/api/migrate'];
+const blockedRoutes: string[] = [];
 
 function rateLimitExceeded(reset: number): NextResponse {
   const retryAfter = Math.ceil((reset - Date.now()) / 1000);

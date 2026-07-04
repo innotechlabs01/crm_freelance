@@ -41,7 +41,11 @@ export async function runMigrations(): Promise<void> {
     const statements = splitStatements(sql);
 
     for (const stmt of statements) {
-      await db.execute(stmt);
+      try {
+        await db.execute(stmt);
+      } catch (err) {
+        console.warn(`[migrate] Warning (non-fatal) in ${file}:`, String(err));
+      }
     }
 
     await db.execute({

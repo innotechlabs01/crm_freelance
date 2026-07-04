@@ -14,10 +14,16 @@ import {
   Building2,
   Plus,
   Landmark,
+  Crown,
+  Sparkles,
+  Loader2,
+  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -35,7 +41,38 @@ import {
   getNotificationPrefs,
   saveNotificationPrefs,
 } from "@/app/actions/freelancer";
+import { useUser } from "@/hooks/use-user";
 import { toast } from "sonner";
+
+function getPlanBadgeStyle(planName: string) {
+  switch (planName.toLowerCase()) {
+    case "free":
+      return "bg-muted text-muted-foreground border-border";
+    case "professional":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800";
+    case "enterprise":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800";
+    default:
+      return "";
+  }
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "active":
+      return { label: "Activo", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" };
+    case "trialing":
+      return { label: "Prueba", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" };
+    case "past_due":
+      return { label: "Pago Pendiente", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" };
+    case "canceled":
+      return { label: "Cancelado", className: "bg-muted text-muted-foreground" };
+    case "expired":
+      return { label: "Expirado", className: "bg-muted text-muted-foreground" };
+    default:
+      return { label: status, className: "" };
+  }
+}
 
 type PaymentMethod = {
   id: string;
@@ -94,8 +131,13 @@ function getPaymentMethodDescription(method: PaymentMethod): string {
 }
 
 export default function ConfiguracionPage() {
+  const { plan, subscription, isFree, refreshLimits } = useUser();
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
@@ -139,7 +181,7 @@ export default function ConfiguracionPage() {
           setActualizaciones(prefsRes.data.systemUpdates);
         }
       } catch {
-        toast.error("Error al cargar configuración");
+        toast.error("Error al cargar configuracion");
       } finally {
         setLoading(false);
       }
@@ -192,12 +234,91 @@ export default function ConfiguracionPage() {
     }
   }
 
+  async function handleUpgrade() {
+    setUpgradeLoading(true);
+    try {
+      const res = await fetch("/api/paddle/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planName: "professional" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Error al crear la sesion de pago");
+      }
+      const { url } = await res.json();
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error("No se recibio la URL de pago");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al crear la sesion de pago");
+    } finally {
+      setUpgradeLoading(false);
+    }
+  }
+
+  async function handleOpenPortal() {
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/paddle/portal");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Error al abrir el portal");
+      }
+      const { portalUrl } = await res.json();
+      if (portalUrl) {
+        window.open(portalUrl, "_blank");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al abrir el portal");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
+  async function handleCancelSubscription() {
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/paddle/cancel", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Error al cancelar suscripcion");
+      }
+      toast.success("Suscripcion cancelada");
+      setShowCancelConfirm(false);
+      await refreshLimits();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al cancelar suscripcion");
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  function formatDate(dateStr: string | null | undefined): string {
+    if (!dateStr) return "\u2014";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
+  }
+
+  function formatPrice(price: number): string {
+    if (price === 0) return "Gratis";
+    return `$${price.toFixed(2)} USD/mes`;
+  }
+
+  const statusBadge = getStatusBadge(subscription?.status || "inactive");
+  const planName = plan?.display_name || "Free";
+  const planPrice = plan?.price ?? 0;
+  const planBadgeStyle = getPlanBadgeStyle(plan?.name || "free");
+  const isPastDue = subscription?.status === "past_due";
+
   const userInitials = nombre ? getInitials(nombre) : "??";
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Cargando configuración...</p>
+        <p className="text-muted-foreground">Cargando configuracion...</p>
       </div>
     );
   }
@@ -206,15 +327,124 @@ export default function ConfiguracionPage() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col gap-1 animate-fade">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Configuración
+          Configuracion
         </h1>
         <p className="text-sm text-muted-foreground">
-          Administra tu perfil, preferencias y configuración de la cuenta
+          Administra tu perfil, plan, preferencias y configuracion de la cuenta
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-6">
+          <Card className="animate-slide">
+            <CardHeader className="border-b pb-3">
+              <div className="flex items-center gap-2">
+                <Crown className="size-4 text-muted-foreground" />
+                <CardTitle>Plan Actual</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-semibold">{planName}</span>
+                  <Badge variant="outline" className={cn("text-[10px]", planBadgeStyle)}>
+                    {plan?.name?.toUpperCase() || "FREE"}
+                  </Badge>
+                </div>
+                <span className="text-lg font-bold tabular-nums">
+                  {formatPrice(planPrice)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Estado:</span>
+                <Badge variant="outline" className={cn("text-[10px]", statusBadge.className)}>
+                  {statusBadge.label}
+                </Badge>
+              </div>
+
+              {subscription?.renewal_at && (
+                <p className="text-sm text-muted-foreground">
+                  Proxima renovacion: {formatDate(subscription.renewal_at)}
+                </p>
+              )}
+
+              {isPastDue && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/30">
+                  <AlertTriangle className="size-4 text-red-600 dark:text-red-400 shrink-0" />
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    Tu pago esta pendiente. Actualiza tu metodo de pago para evitar la suspension del servicio.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                {isFree ? (
+                  <Button onClick={handleUpgrade} disabled={upgradeLoading}>
+                    {upgradeLoading ? (
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 size-4" />
+                    )}
+                    Actualizar a Profesional
+                  </Button>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="default"
+                        className="flex-1"
+                        onClick={handleOpenPortal}
+                        disabled={portalLoading}
+                      >
+                        {portalLoading ? (
+                          <Loader2 className="mr-1.5 size-4 animate-spin" />
+                        ) : (
+                          <ExternalLink className="mr-1.5 size-4" />
+                        )}
+                        Gestionar Suscripcion
+                      </Button>
+                    </div>
+                    {!showCancelConfirm ? (
+                      <Button
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setShowCancelConfirm(true)}
+                      >
+                        Cancelar Suscripcion
+                      </Button>
+                    ) : (
+                      <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 p-3">
+                        <p className="text-sm text-destructive">
+                          Estas seguro? Perderas acceso a las funcionalidades premium.
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={handleCancelSubscription}
+                            disabled={cancelLoading}
+                          >
+                            {cancelLoading && <Loader2 className="mr-1.5 size-3 animate-spin" />}
+                            Si, Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowCancelConfirm(false)}
+                            disabled={cancelLoading}
+                          >
+                            No, Mantener
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="animate-slide">
             <CardHeader>
               <div className="flex items-center gap-4">
@@ -242,23 +472,23 @@ export default function ConfiguracionPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Correo Electrónico
+                  Correo Electronico
                 </label>
                 <Input
                   type="email"
                   value={correo}
                   onChange={(e) => setCorreo(e.target.value)}
-                  placeholder="Correo Electrónico"
+                  placeholder="Correo Electronico"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Teléfono
+                  Telefono
                 </label>
                 <Input
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
-                  placeholder="Teléfono"
+                  placeholder="Telefono"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -298,7 +528,7 @@ export default function ConfiguracionPage() {
                   <div>
                     <p className="text-sm font-medium">Modo Oscuro</p>
                     <p className="text-xs text-muted-foreground">
-                      Activar tema oscuro en la aplicación
+                      Activar tema oscuro en la aplicacion
                     </p>
                   </div>
                 </div>
@@ -320,7 +550,7 @@ export default function ConfiguracionPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="es">Español</SelectItem>
+                    <SelectItem value="es">Espanol</SelectItem>
                     <SelectItem value="en">English</SelectItem>
                   </SelectContent>
                 </Select>
@@ -336,7 +566,7 @@ export default function ConfiguracionPage() {
                     </p>
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground">Automática</span>
+                <span className="text-xs text-muted-foreground">Automatica</span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -345,7 +575,7 @@ export default function ConfiguracionPage() {
                   <div>
                     <p className="text-sm font-medium">Moneda</p>
                     <p className="text-xs text-muted-foreground">
-                      Dólar Estadounidense
+                      Dolar Estadounidense
                     </p>
                   </div>
                 </div>
@@ -358,7 +588,7 @@ export default function ConfiguracionPage() {
             <CardHeader className="border-b pb-3">
               <div className="flex items-center gap-2">
                 <CreditCard className="size-4 text-muted-foreground" />
-                <CardTitle>Métodos de Pago</CardTitle>
+                <CardTitle>Metodos de Pago</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 pt-4">
@@ -388,12 +618,12 @@ export default function ConfiguracionPage() {
               })}
               {paymentMethods.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-2">
-                  Sin métodos de pago registrados
+                  Sin metodos de pago registrados
                 </p>
               )}
               <Button variant="outline" className="w-full">
                 <Plus className="mr-1.5 size-4" />
-                Agregar Método de Pago
+                Agregar Metodo de Pago
               </Button>
             </CardContent>
           </Card>
@@ -421,7 +651,7 @@ export default function ConfiguracionPage() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Confirmación de pago</p>
+                  <p className="text-sm font-medium">Confirmacion de pago</p>
                   <p className="text-xs text-muted-foreground">
                     Notificar cuando un cliente realice un pago
                   </p>

@@ -6,6 +6,7 @@ export async function POST() {
     await seedDatabase();
     return NextResponse.json({ success: true, message: 'Database seeded successfully' });
   } catch (error) {
-    return NextResponse.json({ success: false, error: 'Error interno del servidor' }, { status: 500 });
+    console.error('[seed]', error);
+    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
 }

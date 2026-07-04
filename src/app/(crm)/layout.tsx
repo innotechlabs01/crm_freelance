@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
+import { TrialBanner } from '@/components/layout/trial-banner'
 import { useUser } from '@/hooks/use-user'
 
 const pageTitles: Record<string, string> = {
@@ -54,6 +55,7 @@ export default function CRMLayout({
           title={title}
           onMenuClick={() => setMobileOpen(true)}
         />
+        <TrialBanner />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
