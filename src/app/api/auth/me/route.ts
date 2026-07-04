@@ -12,7 +12,7 @@ export async function GET() {
 
     return withRateLimit(userId, rateLimitAuthenticated, async () => {
       const planResult = await db.execute({
-        sql: `SELECT p.*, s.id as sub_id, s.status as sub_status, s.lemonsqueezy_subscription_id, s.renewal_at
+        sql: `SELECT p.*, s.id as sub_id, s.status as sub_status, s.paddle_subscription_id, s.renewal_at
               FROM subscriptions s JOIN plans p ON s.plan_id = p.id
               WHERE s.user_id = ? ORDER BY s.created_at DESC LIMIT 1`,
         args: [userId],

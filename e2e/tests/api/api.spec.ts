@@ -27,23 +27,21 @@ test.describe('API Routes', () => {
     })
   })
 
-  test.describe('POST /api/lemonsqueezy/checkout', () => {
+  test.describe('POST /api/paddle/checkout', () => {
     test('debe requerir autenticacion', async ({ request }) => {
-      const response = await request.post('/api/lemonsqueezy/checkout', {
+      const response = await request.post('/api/paddle/checkout', {
         data: { planName: 'professional' },
       })
-      // Should return 401 or redirect to sign-in
       expect(response.status()).toBeGreaterThanOrEqual(400)
     })
   })
 
-  test.describe('POST /api/lemonsqueezy/webhook', () => {
+  test.describe('POST /api/paddle/webhook', () => {
     test('debe ser publica (sin auth)', async ({ request }) => {
-      const response = await request.post('/api/lemonsqueezy/webhook', {
+      const response = await request.post('/api/paddle/webhook', {
         headers: { 'Content-Type': 'application/json' },
         data: JSON.stringify({}),
       })
-      // Without signature header, should return 400
       expect(response.status()).toBe(400)
     })
   })

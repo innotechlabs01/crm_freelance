@@ -6,7 +6,6 @@ const publicRoutes = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
-  '/api/lemonsqueezy/webhook',
   '/api/paddle/webhook',
   '/api/seed',
   '/api/migrate',

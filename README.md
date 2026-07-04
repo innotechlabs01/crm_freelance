@@ -11,7 +11,7 @@ CRM SaaS para freelancers colombianos. Gestiona clientes, genera cuentas de cobr
 | Estilos | Tailwind CSS v4 + shadcn/ui (base-nova) |
 | Autenticación | [Clerk](https://clerk.com) |
 | Base de datos | [Turso](https://turso.tech) (libSQL) |
-| Pagos | [Lemon Squeezy](https://lemonsqueezy.com) |
+| Pagos | [Paddle](https://paddle.com) |
 | Gráficos | Recharts |
 | Iconos | Lucide React |
 
@@ -39,7 +39,7 @@ CRM SaaS para freelancers colombianos. Gestiona clientes, genera cuentas de cobr
 - Node.js 18+
 - Cuenta en [Clerk](https://clerk.com)
 - Base de datos en [Turso](https://turso.tech)
-- Cuenta en [Lemon Squeezy](https://lemonsqueezy.com) (para pagos)
+- Cuenta en [Paddle](https://paddle.com) (para pagos)
 
 ## Configuración inicial
 
@@ -70,14 +70,14 @@ Variables requeridas:
 | `NEXT_PUBLIC_CLERK_AFTER_SIGN_OUT_URL` | `/` |
 | `TURSO_DATABASE_URL` | URL de la BD Turso |
 | `TURSO_AUTH_TOKEN` | Token de autenticación Turso |
-| `LEMONSQUEEZY_TEST_API_KEY` | Lemon Squeezy test API key |
-| `LEMONSQUEEZY_TEST_STORE_ID` | Lemon Squeezy test store ID |
-| `LEMONSQUEEZY_TEST_SIGNING_SECRET` | Lemon Squeezy test webhook signing secret |
-| `LEMONSQUEEZY_LIVE_API_KEY` | Lemon Squeezy live API key |
-| `LEMONSQUEEZY_LIVE_STORE_ID` | Lemon Squeezy live store ID |
-| `LEMONSQUEEZY_LIVE_SIGNING_SECRET` | Lemon Squeezy live webhook signing secret |
-| `LEMONSQUEEZY_PRO_VARIANT_ID` | Variant ID for Professional plan |
-| `LEMONSQUEEZY_ENTERPRISE_VARIANT_ID` | Variant ID for Enterprise plan |
+| `PADDLE_SANDBOX_API_KEY` | Paddle sandbox API key |
+| `PADDLE_SANDBOX_WEBHOOK_SECRET` | Paddle sandbox webhook secret |
+| `PADDLE_LIVE_API_KEY` | Paddle live API key |
+| `PADDLE_LIVE_WEBHOOK_SECRET` | Paddle live webhook secret |
+| `PADDLE_PRO_PRICE_ID` | Paddle price ID for Professional plan |
+| `PADDLE_PRO_PRODUCT_ID` | Paddle product ID for Professional plan |
+| `PADDLE_ENTERPRISE_PRICE_ID` | Paddle price ID for Enterprise plan |
+| `PADDLE_ENTERPRISE_PRODUCT_ID` | Paddle product ID for Enterprise plan |
 | `RESEND_API_KEY` | Resend API key for transactional emails |
 | `NEXT_PUBLIC_APP_URL` | URL base de la app (ej. `http://localhost:3000`) |
 
@@ -116,7 +116,7 @@ src/
 │   │   ├── calendario/             # Calendario de facturas
 │   │   └── configuracion/          # Perfil, notificaciones, plan
 │   ├── admin/                      # Panel de administración
-│   ├── api/                        # API routes (auth, lemonsqueezy, migrate, seed)
+│   ├── api/                        # API routes (auth, paddle, migrate, seed)
 │   └── actions/                    # Server Actions (clients, invoices, freelancer, admin)
 ├── components/
 │   ├── auth/                       # AuthProvider (contexto de usuario y plan)
@@ -128,7 +128,7 @@ src/
 │   ├── seed.ts                     # Seed de planes/roles/permisos
 │   └── migrations/                 # Archivos SQL de migración
 ├── hooks/                          # useUser, usePermission
-├── lib/                            # Utilidades (auth, lemonsqueezy, email, utils)
+├── lib/                            # Utilidades (auth, paddle, email, utils)
 └── types/                          # Interfaces TypeScript
 ```
 
@@ -141,19 +141,19 @@ src/
 | `npm run start` | Iniciar servidor de producción |
 | `npm run lint` | Ejecutar ESLint |
 
-## Lemon Squeezy Webhooks
+## Paddle Webhooks
 
-Para desarrollo local, usa Lemon Squeezy CLI o un tunnel (ngrok):
+Para desarrollo local, usa ngrok:
 
 ```bash
 ngrok http 3000
-# Luego configura el webhook en Lemon Squeezy Dashboard apuntando a:
-# https://<tu-ngrok>.ngrok.io/api/lemonsqueezy/webhook
+# Luego configura el webhook en Paddle Dashboard apuntando a:
+# https://<tu-ngrok>.ngrok.io/api/paddle/webhook
 ```
 
 Eventos manejados:
-- `order_created` / `subscription_created` — Crear suscripcion, asignar rol, email de bienvenida
-- `subscription_payment_success` — Activar suscripcion, email de confirmacion
-- `subscription_payment_failed` — Marcar como moroso, periodo de gracia de 7 dias, email de aviso
-- `subscription_updated` — Sincronizar cambios
-- `subscription_cancelled` / `subscription_expired` — Cancelar suscripcion, downgrade a FREE_USER, email de notificacion
+- `subscription.created` — Crear suscripcion, asignar rol, email de bienvenida
+- `transaction.completed` — Activar suscripcion, email de confirmacion
+- `transaction.payment_failed` — Marcar como moroso, periodo de gracia de 7 dias, email de aviso
+- `subscription.updated` — Sincronizar cambios
+- `subscription.canceled` — Cancelar suscripcion, downgrade a FREE_USER, email de notificacion

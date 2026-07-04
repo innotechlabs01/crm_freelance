@@ -7,7 +7,9 @@ const LIVE_SECRET = process.env.PADDLE_LIVE_WEBHOOK_SECRET || ''
 const SANDBOX_SECRET = process.env.PADDLE_SANDBOX_WEBHOOK_SECRET || ''
 
 function isLiveMode(): boolean {
-  return process.env.PADDLE_LIVE === '1'
+  if (process.env.PADDLE_LIVE === '1') return true
+  if (process.env.PADDLE_LIVE === '0') return false
+  return process.env.VERCEL_ENV === 'production'
 }
 
 function getConfig() {

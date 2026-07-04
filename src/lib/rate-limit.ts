@@ -26,7 +26,7 @@ export const rateLimitLemonsqueezy = new Ratelimit({
   redis: redis ?? new Redis({ url: '', token: '' }),
   limiter: Ratelimit.slidingWindow(5, '60 s'),
   analytics: true,
-  prefix: 'rl:lemonsqueezy',
+  prefix: 'rl:paddle',
 });
 
 export class RateLimitError extends Error {
