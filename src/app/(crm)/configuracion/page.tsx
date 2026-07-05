@@ -160,7 +160,7 @@ export default function ConfiguracionPage() {
 
   const { theme, setTheme } = useTheme();
   const { locale, setLocale, t } = useLanguage();
-  const [darkMode, setDarkMode] = useState(theme === "dark");
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     setDarkMode(theme === "dark");

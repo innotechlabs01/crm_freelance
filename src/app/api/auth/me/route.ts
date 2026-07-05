@@ -13,7 +13,7 @@ export async function GET() {
     return withRateLimit(userId, rateLimitAuthenticated, async () => {
       // Ensure every user has at least the free plan + FREE_USER role
       const existingRole = await db.execute({
-        sql: 'SELECT id FROM user_roles WHERE user_id = ? LIMIT 1',
+        sql: 'SELECT user_id FROM user_roles WHERE user_id = ? LIMIT 1',
         args: [userId],
       });
 
@@ -42,10 +42,9 @@ export async function GET() {
           });
 
           // Assign FREE_USER role
-          const urId = crypto.randomUUID();
           await db.execute({
-            sql: 'INSERT OR IGNORE INTO user_roles (id, user_id, role_id) VALUES (?, ?, ?)',
-            args: [urId, userId, roleId],
+            sql: 'INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
+            args: [userId, roleId],
           });
         }
       }

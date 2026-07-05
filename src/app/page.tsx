@@ -77,9 +77,11 @@ function useScrollAnimation(threshold = 0.1) {
 
 function useLandingTheme() {
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   const dark = theme === 'dark'
   const toggle = useCallback(() => setTheme(dark ? 'light' : 'dark'), [dark, setTheme])
-  return { dark, toggle }
+  return { dark, toggle, mounted }
 }
 
 // ---------------------------------------------------------------------------
@@ -354,7 +356,7 @@ const TIMELINE_ITEMS = [
 // ---------------------------------------------------------------------------
 
 function Navbar() {
-  const { dark, toggle } = useLandingTheme()
+  const { dark, toggle, mounted } = useLandingTheme()
   const { isSignedIn } = useClerkUser()
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
@@ -403,7 +405,13 @@ function Navbar() {
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             aria-label="Toggle theme"
           >
-            {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {!mounted ? (
+              <div className="w-5 h-5" />
+            ) : dark ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
           </button>
           {!isSignedIn && (
             <Button
