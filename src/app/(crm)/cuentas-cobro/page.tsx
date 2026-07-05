@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Search,
   Filter,
   Eye,
-  PenLine,
   FileDown,
   Mail,
   Sparkles,
@@ -49,29 +48,38 @@ import {
 import { cn } from "@/lib/utils";
 import {
   fmtCurrency,
-  STATUS_BADGE,
-  PRIORITY_BADGE,
+  getStatusBadge,
+  getPriorityBadge,
 } from "@/lib/mock-data";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { getClients } from "@/app/actions/clients";
 import { getInvoices, createInvoice } from "@/app/actions/invoices";
 import { getFreelancerProfile } from "@/app/actions/freelancer";
+import { generateInvoiceHtml, sendInvoiceEmail } from "@/lib/email";
 import type { WithholdingType, Invoice, Client, Freelancer } from "@/types";
 
-const STEPS = ["Cliente", "Servicio", "Impuestos", "Vista Previa"];
+type RetencionOption = {
+  value: WithholdingType;
+  label: string;
+  labelKey: string;
+  rate: number;
+};
 
-const plazoOptions = [
-  { value: "15", label: "15 días" },
-  { value: "30", label: "30 días" },
-  { value: "45", label: "45 días" },
-  { value: "60", label: "60 días" },
-];
+const RETENCION_MAP: Record<WithholdingType, { labelKey: string; rate: number }> = {
+  ninguna: { labelKey: "invoices.ret_none", rate: 0 },
+  iva: { labelKey: "invoices.ret_iva", rate: 15 },
+  ica: { labelKey: "invoices.ret_ica", rate: 0.96 },
+  renta: { labelKey: "invoices.ret_renta", rate: 11 },
+};
 
-const retencionOptions: { value: WithholdingType; label: string; rate: number }[] = [
-  { value: "ninguna", label: "Ninguna", rate: 0 },
-  { value: "iva", label: "IVA 15%", rate: 15 },
-  { value: "ica", label: "ICA 0.96%", rate: 0.96 },
-  { value: "renta", label: "Renta 11%", rate: 11 },
-];
+const TERM_MAP: Record<string, string> = {
+  "15": "invoices.term_15",
+  "30": "invoices.term_30",
+  "45": "invoices.term_45",
+  "60": "invoices.term_60",
+};
+
+const TERM_VALUES = ["15", "30", "45", "60"];
 
 function todayStr(): string {
   return new Date().toISOString().split("T")[0];
@@ -89,13 +97,16 @@ function formatDate(iso: string): string {
 }
 
 export default function CuentasCobroPage() {
+  const { t, locale } = useLanguage();
+  const steps = useMemo(() => t("invoices.steps").split(","), [t]);
   const { isFree, monthlyInvoiceCount, refreshLimits } = useUser();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [step, setStep] = useState(0);
 
-  // Data state
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [freelancer, setFreelancer] = useState<Freelancer>({
@@ -107,7 +118,6 @@ export default function CuentasCobroPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // AI state
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<{
@@ -116,7 +126,6 @@ export default function CuentasCobroPage() {
     valorSugerido: number;
   } | null>(null);
 
-  // Form state
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [concepto, setConcepto] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -129,6 +138,28 @@ export default function CuentasCobroPage() {
   const [ivaPorcentaje, setIvaPorcentaje] = useState("19");
   const [tipoRetencion, setTipoRetencion] = useState<WithholdingType>("ninguna");
 
+  const retencionOptions: RetencionOption[] = useMemo(
+    () =>
+      (Object.entries(RETENCION_MAP) as [WithholdingType, { labelKey: string; rate: number }][]).map(
+        ([value, { labelKey, rate }]) => ({
+          value,
+          label: t(labelKey),
+          labelKey,
+          rate,
+        })
+      ),
+    [t]
+  );
+
+  const plazoOptions = useMemo(
+    () =>
+      TERM_VALUES.map((value) => ({
+        value,
+        label: t(TERM_MAP[value]),
+      })),
+    [t]
+  );
+
   const fetchData = async () => {
     setLoading(true);
     const [invRes, cliRes, freeRes] = await Promise.all([
@@ -137,17 +168,16 @@ export default function CuentasCobroPage() {
       getFreelancerProfile(),
     ]);
     if (invRes.success) setInvoices(invRes.data || []);
-    else toast.error(invRes.error || "Error al cargar facturas");
+    else toast.error(t("invoices.load_error"));
     if (cliRes.success) setClients(cliRes.data || []);
-    else toast.error(cliRes.error || "Error al cargar clientes");
+    else toast.error(t("invoices.load_clients_error"));
     if (freeRes.success) setFreelancer(freeRes.data || { name: "", nit: "", email: "", phone: "" });
-    else toast.error(freeRes.error || "Error al cargar perfil");
+    else toast.error(t("invoices.load_profile_error"));
     setLoading(false);
   };
 
   useEffect(() => {
     refreshLimits();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -204,7 +234,7 @@ export default function CuentasCobroPage() {
   };
 
   const handleGenerateAI = () => {
-    toast.info("La generación con IA estará disponible próximamente.");
+    toast.info(t("invoices.ai_coming_soon"));
   };
 
   const handleUseAIData = () => {
@@ -250,14 +280,90 @@ export default function CuentasCobroPage() {
     });
     setSubmitting(false);
     if (r.success) {
-      toast.success("Cuenta de cobro creada");
+      toast.success(t("invoices.create_success"));
       if (r.data) setInvoices((prev) => [r.data!, ...prev]);
       setDialogOpen(false);
       resetForm();
       refreshLimits();
     } else {
-      toast.error(r.error || "Error al crear cuenta de cobro");
+      toast.error(r.error || t("invoices.create_error"));
     }
+  };
+
+  const handleViewInvoice = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setViewDialogOpen(true);
+  };
+
+  const handleDownloadInvoice = (invoice: Invoice) => {
+    const html = generateInvoiceHtml(invoice, freelancer);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Cuenta_${invoice.id}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(t("invoices.download_success"));
+  };
+
+  const handleSendInvoice = async (invoice: Invoice) => {
+    const email = freelancer.email || "";
+    if (!email) {
+      toast.error(t("common.email_not_configured"));
+      return;
+    }
+    const { mailtoUrl } = await sendInvoiceEmail(email, invoice, freelancer);
+    window.open(mailtoUrl, "_blank");
+    toast.success(t("common.email_opened"));
+  };
+
+  const handleDownloadPreview = () => {
+    if (!selectedClientId || !concepto) {
+      toast.error(t("invoices.preview_download_error"));
+      return;
+    }
+    const previewInvoice: Invoice = {
+      id: "VISTA-PREVIA",
+      client: clients.find((c) => c.id === Number(selectedClientId))?.name || t("invoices.col_client"),
+      clientId: Number(selectedClientId),
+      date: fechaEmision,
+      value: totalVal,
+      status: "pending",
+      concept: concepto,
+      priority: "medium",
+      description: descripcion,
+      subtotal: baseVal,
+      taxVal: ivaVal,
+      retVal,
+      total: totalVal,
+    };
+    handleDownloadInvoice(previewInvoice);
+  };
+
+  const handleSendPreview = () => {
+    const email = freelancer.email || "";
+    if (!email) {
+      toast.error(t("common.email_not_configured"));
+      return;
+    }
+    const clientName = clients.find((c) => c.id === Number(selectedClientId))?.name || t("invoices.col_client");
+    const previewInvoice: Invoice = {
+      id: "VISTA-PREVIA",
+      client: clientName,
+      clientId: Number(selectedClientId),
+      date: fechaEmision,
+      value: totalVal,
+      status: "pending",
+      concept: concepto,
+      priority: "medium",
+      description: descripcion,
+      subtotal: baseVal,
+      taxVal: ivaVal,
+      retVal,
+      total: totalVal,
+    };
+    handleSendInvoice(previewInvoice);
   };
 
   if (loading) {
@@ -270,33 +376,31 @@ export default function CuentasCobroPage() {
 
   return (
     <div className="flex flex-col flex-1 p-6 gap-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Cuentas de Cobro
+            {t("invoices.title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {invoices.length} cuentas registradas
+            {t("invoices.count", { n: invoices.length })}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <Filter className="size-4" />
-            Filtros
+            {t("invoices.filters")}
           </Button>
           <Button onClick={openCreate}>
             <Plus className="size-4" />
-            Nueva Cuenta
+            {t("invoices.new")}
           </Button>
         </div>
       </div>
 
-      {/* Upgrade Banner */}
       {isFree && (
         <div className="flex items-center justify-between rounded-lg border bg-amber-50 dark:bg-amber-950/20 px-4 py-2.5 text-sm">
           <span className="text-amber-800 dark:text-amber-200">
-            Plan Gratuito — {monthlyInvoiceCount}/3 cuentas este mes
+            {t("invoices.free_banner", { n: monthlyInvoiceCount })}
           </span>
           <Button
             variant="link"
@@ -304,41 +408,39 @@ export default function CuentasCobroPage() {
             className="text-amber-700 dark:text-amber-300 font-semibold"
             onClick={() => setUpgradeModalOpen(true)}
           >
-            Actualizar
+            {t("common.upgrade")}
           </Button>
         </div>
       )}
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por número, cliente o concepto..."
+          placeholder={t("invoices.search_placeholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-8"
         />
       </div>
 
-      {/* Table */}
       <div className="rounded-xl border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Número</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Prioridad</TableHead>
-              <TableHead className="w-[120px]">Acciones</TableHead>
+              <TableHead>{t("invoices.col_number")}</TableHead>
+              <TableHead>{t("invoices.col_client")}</TableHead>
+              <TableHead>{t("invoices.col_date")}</TableHead>
+              <TableHead className="text-right">{t("invoices.col_value")}</TableHead>
+              <TableHead>{t("invoices.col_status")}</TableHead>
+              <TableHead>{t("invoices.col_priority")}</TableHead>
+              <TableHead className="w-[120px]">{t("invoices.col_actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredInvoices.map((invoice) => {
               const client = getClientById(invoice.clientId);
-              const statusBadge = STATUS_BADGE[invoice.status];
-              const priorityBadge = PRIORITY_BADGE[invoice.priority];
+              const statusBadge = getStatusBadge(invoice.status, t);
+              const priorityBadge = getPriorityBadge(invoice.priority, t);
               return (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-mono font-medium text-sm">
@@ -388,16 +490,13 @@ export default function CuentasCobroPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-0.5">
-                      <Button variant="ghost" size="icon-xs" title="Ver">
+                      <Button variant="ghost" size="icon-xs" title={t("common.view")} onClick={() => handleViewInvoice(invoice)}>
                         <Eye className="size-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon-xs" title="Editar">
-                        <PenLine className="size-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon-xs" title="Descargar">
+                      <Button variant="ghost" size="icon-xs" title={t("common.download")} onClick={() => handleDownloadInvoice(invoice)}>
                         <FileDown className="size-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon-xs" title="Enviar">
+                      <Button variant="ghost" size="icon-xs" title={t("common.send")} onClick={() => handleSendInvoice(invoice)}>
                         <Mail className="size-3.5" />
                       </Button>
                     </div>
@@ -411,7 +510,7 @@ export default function CuentasCobroPage() {
                   colSpan={7}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  No se encontraron cuentas de cobro
+                  {t("invoices.empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -419,116 +518,112 @@ export default function CuentasCobroPage() {
         </Table>
       </div>
 
-      {/* Invoice Generator Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent
           showCloseButton={false}
           className="sm:max-w-xl max-h-[90vh] overflow-y-auto"
         >
           <DialogHeader>
-            <DialogTitle>Generar Cuenta de Cobro</DialogTitle>
+            <DialogTitle>{t("invoices.dialog_title")}</DialogTitle>
           </DialogHeader>
 
-          {/* AI Panel */}
           {isFree ? (
             <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-5 text-center">
               <div className="flex size-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
                 <Sparkles className="size-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-sm font-medium">La generación con IA requiere un plan Profesional</p>
+                <p className="text-sm font-medium">{t("invoices.ai_upsell_title")}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Actualiza tu plan para desbloquear el asistente IA y generar cuentas de cobro automáticamente.
+                  {t("invoices.ai_upsell_desc")}
                 </p>
               </div>
               <Button
                 size="sm"
                 onClick={() => setUpgradeModalOpen(true)}
               >
-                Actualizar
+                {t("common.upgrade")}
               </Button>
             </div>
           ) : (
-          <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
-            <div className="flex items-center gap-1.5 text-sm font-medium">
-              <Sparkles className="size-4 text-purple-500" />
-              Asistente IA
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Describe el trabajo realizado..."
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                className="flex-1"
-                disabled={aiLoading}
-              />
-              <Button
-                variant="secondary"
-                onClick={handleGenerateAI}
-                disabled={aiLoading || !aiPrompt.trim()}
-                className="shrink-0"
-              >
-                {aiLoading ? (
-                  <span className="flex items-center gap-1">
-                    <span
-                      className="inline-block size-1.5 rounded-full bg-current animate-pulse"
-                      style={{ animationDelay: "0ms" }}
-                    />
-                    <span
-                      className="inline-block size-1.5 rounded-full bg-current animate-pulse"
-                      style={{ animationDelay: "150ms" }}
-                    />
-                    <span
-                      className="inline-block size-1.5 rounded-full bg-current animate-pulse"
-                      style={{ animationDelay: "300ms" }}
-                    />
-                  </span>
-                ) : (
-                  <>
-                    <Sparkles className="size-4" />
-                    Generar con IA
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* AI Result Card */}
-            {aiResult && (
-              <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs text-muted-foreground">Concepto</span>
-                    <span className="text-sm font-medium">{aiResult.concepto}</span>
-                  </div>
-                  <span className="text-sm font-semibold text-emerald-600">
-                    {fmtCurrency(aiResult.valorSugerido)}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {aiResult.descripcion}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <Button size="xs" onClick={handleUseAIData}>
-                    <Check className="size-3" />
-                    Usar estos datos
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={handleDiscardAI}
-                  >
-                    <Trash2 className="size-3" />
-                    Descartar
-                  </Button>
-                </div>
+            <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <Sparkles className="size-4 text-purple-500" />
+                {t("invoices.ai_title")}
               </div>
-            )}
-          </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder={t("invoices.ai_placeholder")}
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  className="flex-1"
+                  disabled={aiLoading}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={handleGenerateAI}
+                  disabled={aiLoading || !aiPrompt.trim()}
+                  className="shrink-0"
+                >
+                  {aiLoading ? (
+                    <span className="flex items-center gap-1">
+                      <span
+                        className="inline-block size-1.5 rounded-full bg-current animate-pulse"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <span
+                        className="inline-block size-1.5 rounded-full bg-current animate-pulse"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <span
+                        className="inline-block size-1.5 rounded-full bg-current animate-pulse"
+                        style={{ animationDelay: "300ms" }}
+                      />
+                    </span>
+                  ) : (
+                    <>
+                      <Sparkles className="size-4" />
+                      {t("invoices.ai_generate")}
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {aiResult && (
+                <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-muted-foreground">{t("invoices.ai_concept")}</span>
+                      <span className="text-sm font-medium">{aiResult.concepto}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-600">
+                      {fmtCurrency(aiResult.valorSugerido)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {aiResult.descripcion}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Button size="xs" onClick={handleUseAIData}>
+                      <Check className="size-3" />
+                      {t("invoices.ai_use_data")}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={handleDiscardAI}
+                    >
+                      <Trash2 className="size-3" />
+                      {t("invoices.ai_discard")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* Step Indicator */}
           <div className="flex items-center gap-1">
-            {STEPS.map((label, i) => (
+            {steps.map((label, i) => (
               <div key={label} className="flex items-center gap-1">
                 <button
                   type="button"
@@ -552,26 +647,24 @@ export default function CuentasCobroPage() {
                   </span>
                   {label}
                 </button>
-                {i < STEPS.length - 1 && (
+                {i < steps.length - 1 && (
                   <ChevronRight className="size-3 text-muted-foreground" />
                 )}
               </div>
             ))}
           </div>
 
-          {/* Step Content */}
           <div className="flex flex-col gap-4 min-h-[200px]">
-            {/* Step 0: Client Selection */}
             {step === 0 && (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Seleccionar Cliente</Label>
+                  <Label>{t("invoices.field_client")}</Label>
                   <Select
                     value={selectedClientId}
                     onValueChange={(v) => v && setSelectedClientId(v)}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Buscar cliente..." />
+                      <SelectValue placeholder={t("invoices.field_search_client")} />
                     </SelectTrigger>
                     <SelectContent>
                       {clients.map((client) => (
@@ -620,7 +713,7 @@ export default function CuentasCobroPage() {
                         {selectedClient.company}
                       </span>
                       <span className="text-muted-foreground font-mono text-xs">
-                        NIT: {selectedClient.nit}
+                        {t("invoices.field_nit")}: {selectedClient.nit}
                       </span>
                       <span className="text-muted-foreground">
                         {selectedClient.email} · {selectedClient.phone}
@@ -631,31 +724,30 @@ export default function CuentasCobroPage() {
               </div>
             )}
 
-            {/* Step 1: Service Info */}
             {step === 1 && (
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="concepto">Concepto</Label>
+                  <Label htmlFor="concepto">{t("invoices.field_concept")}</Label>
                   <Input
                     id="concepto"
                     value={concepto}
                     onChange={(e) => setConcepto(e.target.value)}
-                    placeholder="Ej. Desarrollo web plataforma e-commerce"
+                    placeholder={t("invoices.field_concept_placeholder")}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="descripcion">Descripción</Label>
+                  <Label htmlFor="descripcion">{t("invoices.field_description")}</Label>
                   <Textarea
                     id="descripcion"
                     value={descripcion}
                     onChange={(e) => setDescripcion(e.target.value)}
-                    placeholder="Detalle del servicio prestado..."
+                    placeholder={t("invoices.field_description_placeholder")}
                     rows={3}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="valorBase">Valor Base</Label>
+                    <Label htmlFor="valorBase">{t("invoices.field_base_value")}</Label>
                     <Input
                       id="valorBase"
                       type="number"
@@ -665,7 +757,7 @@ export default function CuentasCobroPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label>Plazo de Pago</Label>
+                    <Label>{t("invoices.field_payment_term")}</Label>
                     <Select value={plazoPago} onValueChange={(v) => v && handlePlazoChange(v)}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
@@ -682,7 +774,7 @@ export default function CuentasCobroPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="fechaEmision">Fecha de Emisión</Label>
+                    <Label htmlFor="fechaEmision">{t("invoices.field_issue_date")}</Label>
                     <Input
                       id="fechaEmision"
                       type="date"
@@ -692,7 +784,7 @@ export default function CuentasCobroPage() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="fechaVencimiento">
-                      Fecha de Vencimiento
+                      {t("invoices.field_due_date")}
                     </Label>
                     <Input
                       id="fechaVencimiento"
@@ -705,12 +797,11 @@ export default function CuentasCobroPage() {
               </div>
             )}
 
-            {/* Step 2: Taxes */}
             {step === 2 && (
               <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="iva">IVA %</Label>
+                    <Label htmlFor="iva">{t("invoices.field_iva")}</Label>
                     <Input
                       id="iva"
                       type="number"
@@ -719,7 +810,7 @@ export default function CuentasCobroPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label>Tipo de Retención</Label>
+                    <Label>{t("invoices.field_retention")}</Label>
                     <Select
                       value={tipoRetencion}
                       onValueChange={(v) =>
@@ -740,19 +831,18 @@ export default function CuentasCobroPage() {
                   </div>
                 </div>
 
-                {/* Calculation Summary */}
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <h4 className="text-sm font-medium mb-2">
-                    Resumen de Cálculo
+                    {t("invoices.calc_title")}
                   </h4>
                   <div className="flex flex-col gap-1.5 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="text-muted-foreground">{t("invoices.calc_subtotal")}</span>
                       <span className="font-medium">{fmtCurrency(baseVal)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        IVA ({ivaPorcentaje}%)
+                        {t("invoices.calc_iva", { n: ivaPorcentaje })}
                       </span>
                       <span className="font-medium">
                         {fmtCurrency(ivaVal)}
@@ -760,14 +850,18 @@ export default function CuentasCobroPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        Retención ({tipoRetencion === "ninguna" ? "0%" : retencionOptions.find((r) => r.value === tipoRetencion)?.label.split(" ").pop()})
+                        {t("invoices.calc_retention", {
+                          label: tipoRetencion === "ninguna"
+                            ? "0%"
+                            : (retencionOptions.find((r) => r.value === tipoRetencion)?.label.split(" ").pop() ?? ""),
+                        })}
                       </span>
                       <span className="font-medium text-red-600">
                         -{fmtCurrency(retVal)}
                       </span>
                     </div>
                     <div className="flex justify-between border-t pt-1.5 mt-0.5 font-semibold">
-                      <span>Total</span>
+                      <span>{t("invoices.calc_total")}</span>
                       <span>{fmtCurrency(totalVal)}</span>
                     </div>
                   </div>
@@ -775,12 +869,9 @@ export default function CuentasCobroPage() {
               </div>
             )}
 
-            {/* Step 3: Preview */}
             {step === 3 && (
               <div className="flex flex-col gap-4">
-                {/* PDF-like preview card */}
                 <div className="rounded-lg border bg-white shadow-sm text-xs overflow-hidden max-h-[600px] overflow-y-auto">
-                  {/* Header */}
                   <div className="border-b">
                     <div className="grid grid-cols-2">
                       <div className="bg-slate-800 text-white p-3">
@@ -801,57 +892,53 @@ export default function CuentasCobroPage() {
                         </div>
                       </div>
                       <div className="bg-slate-700 text-white p-3 flex flex-col justify-center">
-                        <p className="font-bold text-lg leading-tight">CUENTA DE COBRO</p>
-                        <p className="text-white/70 text-[10px]">Documento equivalente a la factura (Art. 616-1 E.T.)</p>
-                        <p className="text-white/70 text-[10px]">Consecutivo N° {invoices.length + 1}-{(new Date()).getFullYear()}</p>
+                        <p className="font-bold text-lg leading-tight">{t("invoices.preview_title")}</p>
+                        <p className="text-white/70 text-[10px]">{t("invoices.preview_subtitle")}</p>
+                        <p className="text-white/70 text-[10px]">{t("invoices.preview_consecutive", { n: invoices.length + 1, year: new Date().getFullYear() })}</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* De / A */}
                   <div className="grid grid-cols-2 border-b">
                     <div className="p-3 border-r">
                       <p className="font-semibold text-[10px] uppercase text-slate-500 mb-1">
-                        De (Prestador del Servicio)
+                        {t("invoices.preview_from")}
                       </p>
                       <p className="font-medium">{freelancer.name}</p>
-                      <p className="text-slate-600">CC / NIT: {freelancer.nit}</p>
-                      <p className="text-slate-600">Celular: {freelancer.phone}</p>
-                      <p className="text-slate-600">{freelancer.address || "Ciudad: Colombia"}</p>
+                      <p className="text-slate-600">{t("invoices.field_nit")}: {freelancer.nit}</p>
+                      <p className="text-slate-600">{t("invoices.preview_phone")}: {freelancer.phone}</p>
+                      <p className="text-slate-600">{freelancer.address || `${t("invoices.preview_city")}: ${t("invoices.preview_colombia")}`}</p>
                     </div>
                     <div className="p-3">
                       <p className="font-semibold text-[10px] uppercase text-slate-500 mb-1">
-                        A Favor de (Cliente)
+                        {t("invoices.preview_to")}
                       </p>
                       {selectedClient && (
                         <>
                           <p className="font-medium">{selectedClient.name}</p>
                           <p className="text-slate-600">{selectedClient.company}</p>
-                          <p className="text-slate-600">NIT: {selectedClient.nit}</p>
-                          <p className="text-slate-600">Fecha: {formatDate(fechaEmision)}</p>
+                          <p className="text-slate-600">{t("invoices.field_nit")}: {selectedClient.nit}</p>
+                          <p className="text-slate-600">{t("invoices.col_date")}: {formatDate(fechaEmision)}</p>
                         </>
                       )}
                     </div>
                   </div>
 
-                  {/* Debe a / Concepto */}
                   <div className="p-3 border-b bg-slate-50">
                     <p className="font-medium">
-                      DEBE A: <span className="font-semibold">{freelancer.name || "Freelancer"}</span>, la suma de{" "}
-                      <span className="font-semibold">{fmtCurrency(totalVal)}</span>, por concepto de:{" "}
+                      {t("invoices.preview_owes", { name: freelancer.name || "Freelancer", amount: fmtCurrency(totalVal) })}
                     </p>
                     <p className="mt-1">{concepto}</p>
                   </div>
 
-                  {/* Tabla de items */}
                   <div className="p-3">
                     <table className="w-full text-xs border">
                       <thead>
                         <tr className="bg-slate-100">
-                          <th className="text-left py-1.5 px-2 font-semibold text-slate-700 border-r w-8">Ítem</th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-slate-700 border-r">Descripción del Servicio Prestado</th>
-                          <th className="text-center py-1.5 px-2 font-semibold text-slate-700 border-r w-12">Cant.</th>
-                          <th className="text-right py-1.5 px-2 font-semibold text-slate-700 w-24">Valor Total</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-slate-700 border-r w-8">{t("invoices.preview_item")}</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-slate-700 border-r">{t("invoices.preview_item_desc")}</th>
+                          <th className="text-center py-1.5 px-2 font-semibold text-slate-700 border-r w-12">{t("invoices.preview_qty")}</th>
+                          <th className="text-right py-1.5 px-2 font-semibold text-slate-700 w-24">{t("invoices.preview_total_value")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -874,69 +961,65 @@ export default function CuentasCobroPage() {
                     </table>
                   </div>
 
-                  {/* Totales */}
                   <div className="px-3 pb-3">
                     <div className="flex justify-end">
                       <div className="w-56 text-xs">
                         <div className="flex justify-between py-1 border-b">
-                          <span className="text-slate-600">Subtotal:</span>
+                          <span className="text-slate-600">{t("invoices.preview_subtotal_label")}</span>
                           <span>{fmtCurrency(baseVal)}</span>
                         </div>
                         {ivaVal > 0 && (
                           <div className="flex justify-between py-1 border-b">
-                            <span className="text-slate-600">IVA ({ivaPorcentaje}%):</span>
+                            <span className="text-slate-600">{t("invoices.preview_iva_label", { n: ivaPorcentaje })}</span>
                             <span>{fmtCurrency(ivaVal)}</span>
                           </div>
                         )}
                         {retVal > 0 && (
                           <div className="flex justify-between py-1 border-b">
-                            <span className="text-slate-600">Retención:</span>
+                            <span className="text-slate-600">{t("invoices.preview_retention_label")}</span>
                             <span className="text-red-600">-{fmtCurrency(retVal)}</span>
                           </div>
                         )}
                         <div className="flex justify-between py-2 bg-slate-800 text-white px-2 -mx-2 font-semibold">
-                          <span>VALOR TOTAL A PAGAR:</span>
+                          <span>{t("invoices.preview_total_label")}</span>
                           <span>{fmtCurrency(totalVal)}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Datos bancarios */}
                   <div className="p-3 border-t border-b bg-slate-50">
                     <p className="font-semibold text-[10px] uppercase text-slate-500 mb-1.5">
-                      Información Bancaria para Transferencia
+                      {t("invoices.preview_bank_info")}
                     </p>
                     <div className="grid grid-cols-3 gap-3 text-xs">
                       <div>
-                        <p className="text-slate-500">Entidad Financiera</p>
-                        <p className="font-medium">{freelancer.bank || "N/A"}</p>
+                        <p className="text-slate-500">{t("invoices.preview_bank")}</p>
+                        <p className="font-medium">{freelancer.bank || t("invoices.preview_na")}</p>
                       </div>
                       <div>
-                        <p className="text-slate-500">Tipo de Cuenta</p>
+                        <p className="text-slate-500">{t("invoices.preview_account_type")}</p>
                         <p className="font-medium">
                           {freelancer.accountType === "ahorros"
-                            ? "Cuenta de Ahorros"
+                            ? t("invoices.preview_savings")
                             : freelancer.accountType === "corriente"
-                            ? "Cuenta Corriente"
-                            : "N/A"}
+                            ? t("invoices.preview_checking")
+                            : t("invoices.preview_na")}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-500">Número de Cuenta</p>
-                        <p className="font-medium font-mono">{freelancer.accountNumber || "N/A"}</p>
+                        <p className="text-slate-500">{t("invoices.preview_account_number")}</p>
+                        <p className="font-medium font-mono">{freelancer.accountNumber || t("invoices.preview_na")}</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Nota legal */}
                   <div className="p-3 border-b">
                     <p className="text-[9px] text-slate-500 leading-tight italic">
-                      Nota: Esta cuenta de cobro se asimila en sus efectos legales a la letra de cambio (Artículo 774 y siguientes del Código de Comercio). Manifiesto bajo la gravedad del juramento que pertenezco al régimen de No Responsables del Impuesto sobre las Ventas (IVA) - anteriormente Régimen Simplificado (Art. 437 del Estatuto Tributario), y que las actividades aquí descritas corresponden a servicios profesionales independientes.
+                      {t("invoices.preview_legal")}
                     </p>
                   </div>
 
-                  {/* Firma */}
                   <div className="p-4 flex justify-end">
                     <div className="w-56 text-center">
                       <div className="border-b border-slate-300 h-10 mb-1"></div>
@@ -947,42 +1030,36 @@ export default function CuentasCobroPage() {
                         C.C. {freelancer.nit}
                       </p>
                       <p className="text-[10px] text-slate-500">
-                        Prestador del Servicio
+                        {t("invoices.preview_provider")}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
-                    <Eye className="size-4" />
-                    Vista Previa
-                  </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={handleDownloadPreview}>
                     <FileDown className="size-4" />
-                    Generar PDF
+                    {t("invoices.preview_generate_pdf")}
                   </Button>
-                  <Button size="sm">
+                  <Button size="sm" onClick={handleSendPreview}>
                     <Mail className="size-4" />
-                    Enviar por Correo
+                    {t("invoices.preview_send_email")}
                   </Button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Footer Navigation */}
           <DialogFooter>
             <DialogClose
               render={<Button variant="outline" />}
             >
-              Cancelar
+              {t("common.cancel")}
             </DialogClose>
             <div className="flex gap-2">
               {step > 0 && (
                 <Button variant="outline" onClick={() => setStep(step - 1)}>
-                  Anterior
+                  {t("common.back")}
                 </Button>
               )}
               {step < 3 && (
@@ -990,16 +1067,32 @@ export default function CuentasCobroPage() {
                   onClick={() => setStep(step + 1)}
                   disabled={!canGoNext()}
                 >
-                  Siguiente
+                  {t("common.next")}
                 </Button>
               )}
               {step === 3 && (
                 <Button onClick={handleFinalizar} disabled={submitting}>
-                  {submitting ? "Creando..." : "Finalizar"}
+                  {submitting ? t("common.creating") : t("common.finish")}
                 </Button>
               )}
             </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("invoices.view_title", { id: selectedInvoice?.id || "" })}</DialogTitle>
+          </DialogHeader>
+          {selectedInvoice && (
+            <div
+              className="text-[13px]"
+              dangerouslySetInnerHTML={{
+                __html: generateInvoiceHtml(selectedInvoice, freelancer),
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

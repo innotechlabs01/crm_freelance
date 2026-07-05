@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { paddle, getPaddleWebhookSecret, type EventEntity } from '@/lib/paddle'
+import { getPaddleForWebhook, getPaddleWebhookSecret, type EventEntity } from '@/lib/paddle'
 import { db } from '@/db/client'
 import {
   sendWelcomeEmail,
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   let event: EventEntity
   try {
-    event = await paddle.webhooks.unmarshal(body, getPaddleWebhookSecret(), signature)
+    event = await getPaddleForWebhook().webhooks.unmarshal(body, getPaddleWebhookSecret(), signature)
   } catch {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }

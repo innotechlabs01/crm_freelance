@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTheme } from 'next-themes'
+import { useUser as useClerkUser } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -73,25 +75,10 @@ function useScrollAnimation(threshold = 0.1) {
   return { ref, isVisible }
 }
 
-function useTheme() {
-  const [dark, setDark] = useState(() => {
-    if (typeof window === 'undefined') return false
-    const saved = localStorage.getItem('theme')
-    return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  })
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark)
-  }, [dark])
-
-  const toggle = useCallback(() => {
-    setDark((prev) => {
-      const next = !prev
-      localStorage.setItem('theme', next ? 'dark' : 'light')
-      return next
-    })
-  }, [])
-
+function useLandingTheme() {
+  const { theme, setTheme } = useTheme()
+  const dark = theme === 'dark'
+  const toggle = useCallback(() => setTheme(dark ? 'light' : 'dark'), [dark, setTheme])
   return { dark, toggle }
 }
 
@@ -367,7 +354,8 @@ const TIMELINE_ITEMS = [
 // ---------------------------------------------------------------------------
 
 function Navbar() {
-  const { dark, toggle } = useTheme()
+  const { dark, toggle } = useLandingTheme()
+  const { isSignedIn } = useClerkUser()
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -417,20 +405,22 @@ function Navbar() {
           >
             {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
+          {!isSignedIn && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden sm:inline-flex"
+              onClick={() => router.push("/auth/login")}
+            >
+              Iniciar Sesión
+            </Button>
+          )}
           <Button
-            variant="ghost"
             size="sm"
             className="hidden sm:inline-flex"
-            onClick={() => router.push("/auth/login")}
+            onClick={() => router.push(isSignedIn ? "/dashboard" : "/auth/login")}
           >
-            Iniciar Sesión
-          </Button>
-          <Button
-            size="sm"
-            className="hidden sm:inline-flex"
-            onClick={() => router.push("/auth/login")}
-          >
-            Comenzar Gratis
+            {isSignedIn ? "Ir al Dashboard" : "Comenzar Gratis"}
           </Button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -967,26 +957,26 @@ function InvoiceMockup() {
         />
         <div className="grid lg:grid-cols-[1.2fr_1fr] gap-12 items-center mt-12">
           <FadeUp>
-            <div className="bg-white dark:bg-[#1a1a2e] rounded-2xl p-8 shadow-xl text-[#0A0A0B] dark:text-[#E4E4E7] text-[13px]">
+            <div className="bg-card rounded-2xl p-8 shadow-xl text-card-foreground text-[13px]">
               {/* Invoice header */}
-              <div className="flex justify-between pb-4 mb-6 border-b-2 border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between pb-4 mb-6 border-b-2 border-border">
                 <div>
                   <h4 className="text-xl font-extrabold text-primary">FreelanceCRM</h4>
-                  <div className="text-[11px] text-gray-400">Cuenta de Cobro</div>
+                  <div className="text-[11px] text-muted-foreground">Cuenta de Cobro</div>
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-extrabold text-primary">#0012</div>
-                  <div className="text-xs text-gray-400">15 de Junio, 2026</div>
+                  <div className="text-xs text-muted-foreground">15 de Junio, 2026</div>
                 </div>
               </div>
               {/* Meta */}
               <div className="grid grid-cols-2 gap-3 mb-6 text-xs">
                 <div>
-                  <strong className="block text-gray-400 font-medium mb-1 uppercase tracking-[0.04em]">Cliente</strong>
+                  <strong className="block text-muted-foreground font-medium mb-1 uppercase tracking-[0.04em]">Cliente</strong>
                   María López<br />Studio 3 Diseño<br />NIT: 123.456.789-0
                 </div>
                 <div>
-                  <strong className="block text-gray-400 font-medium mb-1 uppercase tracking-[0.04em]">Dirección</strong>
+                  <strong className="block text-muted-foreground font-medium mb-1 uppercase tracking-[0.04em]">Dirección</strong>
                   Calle 45 #23-12<br />Bogotá, Colombia<br />maria@studio3.com
                 </div>
               </div>
@@ -994,13 +984,13 @@ function InvoiceMockup() {
               <table className="w-full mb-5 text-xs">
                 <thead>
                   <tr>
-                    <th className="text-left py-2 text-[11px] uppercase tracking-[0.04em] text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-2 text-[11px] uppercase tracking-[0.04em] text-muted-foreground border-b border-border">
                       Concepto
                     </th>
-                    <th className="text-left py-2 text-[11px] uppercase tracking-[0.04em] text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-2 text-[11px] uppercase tracking-[0.04em] text-muted-foreground border-b border-border">
                       Cant.
                     </th>
-                    <th className="text-left py-2 text-[11px] uppercase tracking-[0.04em] text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-2 text-[11px] uppercase tracking-[0.04em] text-muted-foreground border-b border-border">
                       Valor
                     </th>
                   </tr>
@@ -1011,7 +1001,7 @@ function InvoiceMockup() {
                     ['Diseño UI/UX - Sprint 2', '1', '$1.200.000'],
                     ['Hosting mensual', '1', '$150.000'],
                   ].map((row, i) => (
-                    <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
+                    <tr key={i} className="border-b border-border">
                       <td className="py-2">{row[0]}</td>
                       <td className="py-2">{row[1]}</td>
                       <td className="py-2">{row[2]}</td>
@@ -1020,11 +1010,11 @@ function InvoiceMockup() {
                 </tbody>
               </table>
               {/* Total */}
-              <div className="text-right pt-3 border-t-2 border-gray-200 dark:border-gray-700 text-sm font-bold">
+              <div className="text-right pt-3 border-t-2 border-border text-sm font-bold">
                 Total: <span className="text-xl text-secondary">$5.150.000</span>
               </div>
               {/* Bank info */}
-              <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 gap-1 text-[11px] text-gray-500">
+              <div className="mt-4 pt-3 border-t border-border grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
                 <span><strong>Banco:</strong> Bancolombia</span>
                 <span><strong>Tipo:</strong> Cuenta de Ahorros</span>
                 <span><strong>Número:</strong> 123-456789-01</span>

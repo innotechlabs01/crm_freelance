@@ -90,6 +90,55 @@ export async function getPaymentMethods(): Promise<{ success: boolean; data?: { 
   }
 }
 
+export async function createPaymentMethod(payload: {
+  name: string;
+  bank: string;
+  accountType: string;
+  accountNumber: string;
+  phone: string;
+}): Promise<{ success: boolean; data?: { id: string; name: string; bank: string; accountType: string; accountNumber: string; phone: string }; error?: string }> {
+  try {
+    const userId = await getAuthUserId();
+    if (!userId) return { success: false, error: 'No autorizado' };
+
+    return withRateLimit(userId, rateLimitWrite, async () => {
+      const id = `pm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await db.execute({
+        sql: `INSERT INTO payment_methods (id, user_id, name, bank, account_type, account_number, phone, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        args: [id, userId, payload.name, payload.bank, payload.accountType, payload.accountNumber, payload.phone || ''],
+      });
+
+      return { success: true, data: { id, ...payload } };
+    });
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
+
+export async function deletePaymentMethod(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const userId = await getAuthUserId();
+    if (!userId) return { success: false, error: 'No autorizado' };
+
+    return withRateLimit(userId, rateLimitWrite, async () => {
+      await db.execute({
+        sql: 'UPDATE payment_methods SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?',
+        args: [id, userId],
+      });
+      return { success: true };
+    });
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
+
 export async function getNotificationPrefs(): Promise<{ success: boolean; data?: { paymentReminders: boolean; paymentConfirmations: boolean; weeklySummary: boolean; systemUpdates: boolean }; error?: string }> {
   try {
     const userId = await getAuthUserId();

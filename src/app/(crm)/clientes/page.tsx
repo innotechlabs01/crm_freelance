@@ -44,6 +44,7 @@ import {
   updateClient,
 } from "@/app/actions/clients";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { Client, TaxType, AccountType } from "@/types";
 
 type ClientFormData = Omit<Client, "id" | "totalInvoiced" | "status" | "initials" | "color">;
@@ -62,18 +63,8 @@ const emptyForm: ClientFormData = {
   notes: "",
 };
 
-const taxTypeLabels: Record<TaxType, string> = {
-  "regimen-comun": "Régimen Común",
-  "regimen-simplificado": "Régimen Simplificado",
-  "gran-contribuyente": "Gran Contribuyente",
-};
-
-const accountTypeLabels: Record<AccountType, string> = {
-  ahorros: "Ahorros",
-  corriente: "Corriente",
-};
-
 export default function ClientesPage() {
+  const { t } = useLanguage();
   const { isFree, clientCount, refreshLimits } = useUser();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -90,12 +81,12 @@ export default function ClientesPage() {
       if (result.success) {
         setClients(result.data || []);
       } else {
-        toast.error(result.error || "Error al cargar clientes");
+        toast.error(result.error || t("clients.load_error"));
       }
     } catch {
-      toast.error("Error al cargar clientes");
+      toast.error(t("clients.load_error"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const init = async () => {
@@ -146,7 +137,7 @@ export default function ClientesPage() {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast.error("El nombre es obligatorio");
+      toast.error(t("clients.name_required"));
       return;
     }
 
@@ -155,28 +146,28 @@ export default function ClientesPage() {
       if (editingClient) {
         const result = await updateClient(editingClient.id, formData);
         if (result.success) {
-          toast.success("Cliente actualizado");
+          toast.success(t("clients.update_success"));
           setDialogOpen(false);
           setEditingClient(null);
           setFormData(emptyForm);
           await loadClients();
         } else {
-          toast.error(result.error || "Error al actualizar cliente");
+          toast.error(result.error || t("clients.update_error"));
         }
       } else {
         const result = await createClient(formData);
         if (result.success) {
-          toast.success("Cliente creado");
+          toast.success(t("clients.create_success"));
           setDialogOpen(false);
           setFormData(emptyForm);
           await loadClients();
           refreshLimits();
         } else {
-          toast.error(result.error || "Error al crear cliente");
+          toast.error(result.error || t("clients.create_error"));
         }
       }
     } catch {
-      toast.error("Error al guardar cliente");
+      toast.error(t("clients.save_error"));
     } finally {
       setSaving(false);
     }
@@ -199,25 +190,23 @@ export default function ClientesPage() {
 
   return (
     <div className="flex flex-col flex-1 p-6 gap-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("clients.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {clients.length} clientes registrados
+            {t("clients.count", { n: clients.length })}
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="size-4" />
-          Nuevo Cliente
+          {t("clients.new")}
         </Button>
       </div>
 
-      {/* Upgrade Banner */}
       {isFree && (
         <div className="flex items-center justify-between rounded-lg border bg-amber-50 dark:bg-amber-950/20 px-4 py-2.5 text-sm">
           <span className="text-amber-800 dark:text-amber-200">
-            Plan Gratuito — {clientCount}/1 clientes usados
+            {t("clients.free_banner", { n: clientCount })}
           </span>
           <Button
             variant="link"
@@ -225,34 +214,32 @@ export default function ClientesPage() {
             className="text-amber-700 dark:text-amber-300 font-semibold"
             onClick={() => setUpgradeModalOpen(true)}
           >
-            Actualizar
+            {t("common.upgrade")}
           </Button>
         </div>
       )}
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por nombre, empresa o NIT..."
+          placeholder={t("clients.search_placeholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-8"
         />
       </div>
 
-      {/* Table */}
       <div className="rounded-xl border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Empresa</TableHead>
-              <TableHead>NIT</TableHead>
-              <TableHead>Correo</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead className="text-right">Total Facturado</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead>{t("clients.col_name")}</TableHead>
+              <TableHead>{t("clients.col_company")}</TableHead>
+              <TableHead>{t("clients.col_nit")}</TableHead>
+              <TableHead>{t("clients.col_email")}</TableHead>
+              <TableHead>{t("clients.col_phone")}</TableHead>
+              <TableHead className="text-right">{t("clients.col_invoiced")}</TableHead>
+              <TableHead>{t("clients.col_status")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -297,7 +284,7 @@ export default function ClientesPage() {
                   <Badge
                     variant={client.status === "active" ? "default" : "secondary"}
                   >
-                    {client.status === "active" ? "Activo" : "Inactivo"}
+                    {client.status === "active" ? t("clients.status_active") : t("clients.status_inactive")}
                   </Badge>
                 </TableCell>
               </TableRow>
@@ -305,7 +292,7 @@ export default function ClientesPage() {
             {filteredClients.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No se encontraron clientes
+                  {t("clients.empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -313,92 +300,89 @@ export default function ClientesPage() {
         </Table>
       </div>
 
-      {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingClient ? "Editar Cliente" : "Nuevo Cliente"}
+              {editingClient ? t("clients.edit") : t("clients.new")}
             </DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-6">
-            {/* Basic Info */}
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-medium text-muted-foreground mb-1">
-                Información Básica
+                {t("clients.section_basic")}
               </legend>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="name">Nombre completo</Label>
+                  <Label htmlFor="name">{t("clients.field_name")}</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => updateField("name", e.target.value)}
-                    placeholder="Ej. María García"
+                    placeholder={t("clients.field_name_ph")}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="company">Empresa</Label>
+                  <Label htmlFor="company">{t("clients.field_company")}</Label>
                   <Input
                     id="company"
                     value={formData.company}
                     onChange={(e) => updateField("company", e.target.value)}
-                    placeholder="Ej. TechSolutions SAS"
+                    placeholder={t("clients.field_company_ph")}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="nit">NIT/RUT</Label>
+                  <Label htmlFor="nit">{t("clients.field_nit")}</Label>
                   <Input
                     id="nit"
                     value={formData.nit}
                     onChange={(e) => updateField("nit", e.target.value)}
-                    placeholder="901.123.456-7"
+                    placeholder={t("clients.field_nit_ph")}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="email">Correo</Label>
+                  <Label htmlFor="email">{t("clients.field_email")}</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => updateField("email", e.target.value)}
-                    placeholder="correo@empresa.co"
+                    placeholder={t("clients.field_email_ph")}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="phone">Teléfono</Label>
+                  <Label htmlFor="phone">{t("clients.field_phone")}</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
                     onChange={(e) => updateField("phone", e.target.value)}
-                    placeholder="+57 300 123 4567"
+                    placeholder={t("clients.field_phone_ph")}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="address">Dirección</Label>
+                  <Label htmlFor="address">{t("clients.field_address")}</Label>
                   <Input
                     id="address"
                     value={formData.address}
                     onChange={(e) => updateField("address", e.target.value)}
-                    placeholder="Carrera 15 # 88-40"
+                    placeholder={t("clients.field_address_ph")}
                   />
                 </div>
               </div>
             </fieldset>
 
-            {/* Tax Info */}
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-medium text-muted-foreground mb-1">
-                Información Tributaria
+                {t("clients.section_tax")}
               </legend>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Tipo de Contribuyente</Label>
+                  <Label>{t("clients.field_tax_type")}</Label>
                   <Select
                     value={formData.taxType}
                     onValueChange={(v) => updateField("taxType", v as TaxType)}
@@ -408,49 +392,48 @@ export default function ClientesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="regimen-comun">
-                        {taxTypeLabels["regimen-comun"]}
+                        {t("clients.tax_common")}
                       </SelectItem>
                       <SelectItem value="regimen-simplificado">
-                        {taxTypeLabels["regimen-simplificado"]}
+                        {t("clients.tax_simplified")}
                       </SelectItem>
                       <SelectItem value="gran-contribuyente">
-                        {taxTypeLabels["gran-contribuyente"]}
+                        {t("clients.tax_large")}
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Autoretenedor</Label>
+                  <Label>{t("clients.field_self_withholding")}</Label>
                   <Select defaultValue="no">
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="si">Sí</SelectItem>
+                      <SelectItem value="no">{t("clients.field_no")}</SelectItem>
+                      <SelectItem value="si">{t("clients.field_yes")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             </fieldset>
 
-            {/* Bank Info */}
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-medium text-muted-foreground mb-1">
-                Información Bancaria
+                {t("clients.section_bank")}
               </legend>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="bank">Banco</Label>
+                <Label htmlFor="bank">{t("clients.field_bank")}</Label>
                 <Input
                   id="bank"
                   value={formData.bank}
                   onChange={(e) => updateField("bank", e.target.value)}
-                  placeholder="Ej. Bancolombia"
+                  placeholder={t("clients.field_bank_ph")}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Tipo de Cuenta</Label>
+                  <Label>{t("clients.field_account_type")}</Label>
                   <Select
                     value={formData.accountType}
                     onValueChange={(v) =>
@@ -462,37 +445,36 @@ export default function ClientesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ahorros">
-                        {accountTypeLabels.ahorros}
+                        {t("clients.account_savings")}
                       </SelectItem>
                       <SelectItem value="corriente">
-                        {accountTypeLabels.corriente}
+                        {t("clients.account_checking")}
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="accountNumber">Número de Cuenta</Label>
+                  <Label htmlFor="accountNumber">{t("clients.field_account_number")}</Label>
                   <Input
                     id="accountNumber"
                     value={formData.accountNumber}
                     onChange={(e) =>
                       updateField("accountNumber", e.target.value)
                     }
-                    placeholder="000-123456-78"
+                    placeholder={t("clients.field_account_number_ph")}
                   />
                 </div>
               </div>
             </fieldset>
 
-            {/* Notes */}
             <fieldset className="flex flex-col gap-1.5">
               <legend className="text-sm font-medium text-muted-foreground mb-1">
-                Notas
+                {t("clients.section_notes")}
               </legend>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
-                placeholder="Notas adicionales sobre el cliente..."
+                placeholder={t("clients.field_notes_ph")}
                 rows={3}
               />
             </fieldset>
@@ -500,15 +482,15 @@ export default function ClientesPage() {
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>
-              Cancelar
+              {t("common.cancel")}
             </DialogClose>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : editingClient ? (
-                "Guardar Cambios"
+                t("clients.btn_save")
               ) : (
-                "Crear Cliente"
+                t("clients.btn_create")
               )}
             </Button>
           </DialogFooter>

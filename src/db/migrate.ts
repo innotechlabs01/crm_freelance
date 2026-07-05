@@ -54,4 +54,13 @@ export async function runMigrations(): Promise<void> {
     });
     console.log(`[migrate] Executed: ${file}`);
   }
+
+  // Always run seed after migrations to ensure plans have Paddle IDs
+  try {
+    const seedModule = await import('@/db/seed');
+    await seedModule.default();
+    console.log('[migrate] Seed completed');
+  } catch (err) {
+    console.warn('[migrate] Seed warning (non-fatal):', String(err));
+  }
 }

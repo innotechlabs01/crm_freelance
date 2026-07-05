@@ -11,6 +11,45 @@ export async function GET() {
     }
 
     return withRateLimit(userId, rateLimitAuthenticated, async () => {
+      // Ensure every user has at least the free plan + FREE_USER role
+      const existingRole = await db.execute({
+        sql: 'SELECT id FROM user_roles WHERE user_id = ? LIMIT 1',
+        args: [userId],
+      });
+
+      if (existingRole.rows.length === 0) {
+        // Get free plan
+        const freePlan = await db.execute({
+          sql: 'SELECT id FROM plans WHERE name = ? AND is_active = 1 LIMIT 1',
+          args: ['free'],
+        });
+        const planId = freePlan.rows[0]?.id as string | undefined;
+
+        // Get FREE_USER role
+        const role = await db.execute({
+          sql: 'SELECT id FROM roles WHERE name = ? LIMIT 1',
+          args: ['FREE_USER'],
+        });
+        const roleId = role.rows[0]?.id as string | undefined;
+
+        if (planId && roleId) {
+          // Create subscription for free plan
+          const subId = crypto.randomUUID();
+          await db.execute({
+            sql: `INSERT OR IGNORE INTO subscriptions (id, user_id, plan_id, status, starts_at)
+                  VALUES (?, ?, ?, 'active', datetime('now'))`,
+            args: [subId, userId, planId],
+          });
+
+          // Assign FREE_USER role
+          const urId = crypto.randomUUID();
+          await db.execute({
+            sql: 'INSERT OR IGNORE INTO user_roles (id, user_id, role_id) VALUES (?, ?, ?)',
+            args: [urId, userId, roleId],
+          });
+        }
+      }
+
       const planResult = await db.execute({
         sql: `SELECT p.*, s.id as sub_id, s.status as sub_status, s.paddle_subscription_id, s.renewal_at
               FROM subscriptions s JOIN plans p ON s.plan_id = p.id

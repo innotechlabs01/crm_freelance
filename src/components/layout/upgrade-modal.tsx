@@ -5,6 +5,7 @@ import { AlertTriangle, Sparkles, Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/hooks/use-user'
+import { useLanguage } from '@/lib/i18n/LanguageProvider'
 
 type UpgradeReason = 'client_limit' | 'invoice_limit' | 'premium_feature'
 
@@ -15,29 +16,19 @@ interface UpgradeModalProps {
   featureName?: string
 }
 
-const messages: Record<UpgradeReason, (featureName?: string) => { title: string; description: string }> = {
-  client_limit: () => ({
-    title: 'Actualiza tu Plan',
-    description:
-      'Has alcanzado el límite de tu Plan Gratuito (1 cliente). Actualiza a Profesional para crear clientes ilimitados.',
-  }),
-  invoice_limit: () => ({
-    title: 'Actualiza tu Plan',
-    description:
-      'Has alcanzado tu límite mensual de 3 cuentas de cobro. Actualiza para continuar.',
-  }),
-  premium_feature: (featureName?: string) => ({
-    title: 'Actualiza tu Plan',
-    description: `'${featureName ?? 'Esta funcionalidad'}' requiere un plan Profesional.`,
-  }),
-}
-
 export function UpgradeModal({ open, onClose, reason, featureName }: UpgradeModalProps) {
   const { isFree } = useUser()
+  const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { title, description } = messages[reason](featureName)
+  const title = t('upgrade.title')
+  const descriptionMap: Record<UpgradeReason, string> = {
+    client_limit: t('upgrade.client_limit'),
+    invoice_limit: t('upgrade.invoice_limit'),
+    premium_feature: t('upgrade.premium_feature', { name: featureName ?? 'Esta funcionalidad' }),
+  }
+  const description = descriptionMap[reason]
 
   const handleUpgrade = async () => {
     setLoading(true)
@@ -52,17 +43,17 @@ export function UpgradeModal({ open, onClose, reason, featureName }: UpgradeModa
 
       if (!res.ok) {
         const body = await res.json().catch(() => null)
-        throw new Error(body?.error ?? 'Error al crear la sesión de pago')
+        throw new Error(body?.error ?? t('upgrade.error'))
       }
 
       const { url } = await res.json()
       if (url) {
         window.location.href = url
       } else {
-        throw new Error('No se recibió la URL de pago')
+        throw new Error(t('upgrade.no_url'))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear la sesión de pago')
+      setError(err instanceof Error ? err.message : t('upgrade.error'))
     } finally {
       setLoading(false)
     }
@@ -91,11 +82,11 @@ export function UpgradeModal({ open, onClose, reason, featureName }: UpgradeModa
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={loading}>
-            Ahora no
+            {t('upgrade.later')}
           </Button>
           <Button onClick={handleUpgrade} disabled={loading}>
             {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Actualizar Ahora
+            {t('upgrade.now')}
           </Button>
         </DialogFooter>
       </DialogContent>

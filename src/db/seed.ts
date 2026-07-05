@@ -20,16 +20,34 @@ export default async function seedDatabase(): Promise<void> {
 
   if (proPriceId) {
     planInserts.push({
-      sql: `INSERT OR IGNORE INTO plans (id, name, display_name, price, paddle_price_id, paddle_product_id, max_clients, max_invoices_per_month, features_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO plans (id, name, display_name, price, paddle_price_id, paddle_product_id, max_clients, max_invoices_per_month, features_json, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ON CONFLICT(name) DO UPDATE SET
+            paddle_price_id=excluded.paddle_price_id,
+            paddle_product_id=excluded.paddle_product_id,
+            price=excluded.price,
+            display_name=excluded.display_name,
+            max_clients=excluded.max_clients,
+            max_invoices_per_month=excluded.max_invoices_per_month,
+            features_json=excluded.features_json,
+            is_active=1`,
       args: [proPlanId, 'professional', 'Professional', 2499, proPriceId, proProductId || '', -1, -1, '["create_client","create_invoice","view_basic_dashboard","ai_access","reminders","advanced_reports","cashflow","pdf_branding","payment_tracking","unlimited_clients","unlimited_invoices"]'],
     })
   }
 
   if (enterprisePriceId) {
     planInserts.push({
-      sql: `INSERT OR IGNORE INTO plans (id, name, display_name, price, paddle_price_id, paddle_product_id, max_clients, max_invoices_per_month, features_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO plans (id, name, display_name, price, paddle_price_id, paddle_product_id, max_clients, max_invoices_per_month, features_json, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ON CONFLICT(name) DO UPDATE SET
+            paddle_price_id=excluded.paddle_price_id,
+            paddle_product_id=excluded.paddle_product_id,
+            price=excluded.price,
+            display_name=excluded.display_name,
+            max_clients=excluded.max_clients,
+            max_invoices_per_month=excluded.max_invoices_per_month,
+            features_json=excluded.features_json,
+            is_active=1`,
       args: [enterprisePlanId, 'enterprise', 'Enterprise', 7999, enterprisePriceId, enterpriseProductId || '', -1, -1, '["create_client","create_invoice","view_basic_dashboard","ai_access","reminders","advanced_reports","cashflow","pdf_branding","payment_tracking","manage_team","manage_roles","white_label","api_access","unlimited_clients","unlimited_invoices"]'],
     })
   }

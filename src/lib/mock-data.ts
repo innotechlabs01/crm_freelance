@@ -1,5 +1,7 @@
 import { NavItem } from "@/types";
 
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
 export const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -17,17 +19,43 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "configuracion", label: "Configuración", icon: "Settings" },
 ];
 
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  sent: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  paid: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+  overdue: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  medium: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  low: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+};
+
+export function getStatusBadge(status: string, t: TFunc) {
+  const color = STATUS_COLORS[status] || STATUS_COLORS.pending
+  const key = `status.${status}` as string
+  return { color, label: t(key) }
+}
+
+export function getPriorityBadge(priority: string, t: TFunc) {
+  const color = PRIORITY_COLORS[priority] || PRIORITY_COLORS.medium
+  const key = `priority.${priority}` as string
+  return { color, label: t(key) }
+}
+
+// Legacy static exports for backward compat
 export const STATUS_BADGE: Record<string, { color: string; label: string }> = {
-  pending: { color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", label: "Pendiente" },
-  sent: { color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", label: "Enviada" },
-  paid: { color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400", label: "Pagada" },
-  overdue: { color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", label: "Vencida" },
+  pending: { color: STATUS_COLORS.pending, label: "Pendiente" },
+  sent: { color: STATUS_COLORS.sent, label: "Enviada" },
+  paid: { color: STATUS_COLORS.paid, label: "Pagada" },
+  overdue: { color: STATUS_COLORS.overdue, label: "Vencida" },
 };
 
 export const PRIORITY_BADGE: Record<string, { color: string; label: string }> = {
-  high: { color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", label: "Alta" },
-  medium: { color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", label: "Media" },
-  low: { color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400", label: "Baja" },
+  high: { color: PRIORITY_COLORS.high, label: "Alta" },
+  medium: { color: PRIORITY_COLORS.medium, label: "Media" },
+  low: { color: PRIORITY_COLORS.low, label: "Baja" },
 };
 
 export const fmtCurrency = (n: number): string =>

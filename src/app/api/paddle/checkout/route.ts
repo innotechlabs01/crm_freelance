@@ -30,6 +30,10 @@ export async function POST(request: NextRequest) {
         successUrl
       )
 
+      if (!result_1.url) {
+        return NextResponse.json({ error: 'Paddle no devolvio una URL de checkout. Verifica el API key y el price ID.' }, { status: 500 })
+      }
+
       return NextResponse.json({ url: result_1.url })
     })
   } catch (e) {
@@ -40,6 +44,6 @@ export async function POST(request: NextRequest) {
       )
     }
     console.error('Paddle checkout error:', e instanceof Error ? e.message : 'Unknown error')
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error interno' }, { status: 500 })
   }
 }

@@ -13,6 +13,7 @@ import { MONTHS, DAYS } from "@/lib/mock-data";
 import { getInvoices } from "@/app/actions/invoices";
 import { toast } from "sonner";
 import type { Invoice } from "@/types";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 const today = new Date();
 const CURRENT_YEAR = today.getFullYear();
@@ -20,6 +21,7 @@ const CURRENT_MONTH = today.getMonth();
 const CURRENT_DAY = today.getDate();
 
 export default function CalendarioPage() {
+  const { t } = useLanguage();
   const [year, setYear] = useState(CURRENT_YEAR);
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -30,18 +32,18 @@ export default function CalendarioPage() {
       try {
         const res = await getInvoices();
         if (!res.success) {
-          toast.error(res.error || "Error al cargar facturas");
+          toast.error(res.error || t("invoices.load_error"));
           return;
         }
         setInvoices(res.data ?? []);
       } catch {
-        toast.error("Error al cargar facturas");
+        toast.error(t("invoices.load_error"));
       } finally {
         setLoading(false);
       }
     }
     fetchInvoices();
-  }, []);
+  }, [t]);
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -108,7 +110,9 @@ export default function CalendarioPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col gap-1 animate-fade">
-        <h1 className="text-2xl font-semibold tracking-tight">Calendario</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("nav.calendario")}
+        </h1>
         <p className="text-sm text-muted-foreground">
           Gestión de fechas de vencimiento y eventos
         </p>
@@ -116,7 +120,7 @@ export default function CalendarioPage() {
 
       {loading ? (
         <div className="flex items-center justify-center min-h-[200px]">
-          <p className="text-muted-foreground">Cargando calendario...</p>
+          <p className="text-muted-foreground">{t("common.loading")}</p>
         </div>
       ) : (
         <>

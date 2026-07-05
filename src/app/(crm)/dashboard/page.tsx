@@ -7,7 +7,6 @@ import {
   Clock,
   Users,
   FileText,
-  Plus,
   ChevronUp,
   ChevronDown,
   Loader2,
@@ -27,6 +26,7 @@ import {
 import { getClients } from "@/app/actions/clients";
 import { getInvoices } from "@/app/actions/invoices";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { Client, Invoice, KpiData } from "@/types";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -36,7 +36,7 @@ const iconMap: Record<string, React.ElementType> = {
   Users,
 };
 
-type Period = "Día" | "Semana" | "Mes" | "Año";
+type Period = "day" | "week" | "month" | "year";
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   const max = Math.max(...data, 1);
@@ -161,22 +161,31 @@ function CashFlowChart({
   collected,
   pending,
   labels,
+  t,
 }: {
   billed: number[];
   collected: number[];
   pending: number[];
   labels: string[];
+  t: (key: string) => string;
 }) {
-  const [period, setPeriod] = useState<Period>("Mes");
+  const [period, setPeriod] = useState<Period>("month");
+
+  const periodLabels: Record<Period, string> = {
+    day: t("dashboard.day"),
+    week: t("dashboard.week"),
+    month: t("dashboard.month"),
+    year: t("dashboard.year"),
+  };
 
   if (labels.length === 0) {
     return (
       <Card className="animate-slide">
         <CardHeader className="flex-row items-center justify-between border-b pb-3">
-          <CardTitle>Flujo de Caja</CardTitle>
+          <CardTitle>{t("dashboard.cashflow")}</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 flex items-center justify-center h-40 text-muted-foreground text-sm">
-          Sin datos de facturación
+          {t("dashboard.no_chart_data")}
         </CardContent>
       </Card>
     );
@@ -192,9 +201,9 @@ function CashFlowChart({
   return (
     <Card className="animate-slide">
       <CardHeader className="flex-row items-center justify-between border-b pb-3">
-        <CardTitle>Flujo de Caja</CardTitle>
+        <CardTitle>{t("dashboard.cashflow")}</CardTitle>
         <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-          {(["Día", "Semana", "Mes", "Año"] as Period[]).map((p) => (
+          {(Object.keys(periodLabels) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -205,7 +214,7 @@ function CashFlowChart({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {p}
+              {periodLabels[p]}
             </button>
           ))}
         </div>
@@ -213,13 +222,13 @@ function CashFlowChart({
       <CardContent className="pt-4">
         <div className="flex items-center gap-6 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm bg-chart-1" /> Facturado
+            <span className="size-2.5 rounded-sm bg-chart-1" /> {t("dashboard.invoiced")}
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm bg-chart-2" /> Cobrado
+            <span className="size-2.5 rounded-sm bg-chart-2" /> {t("dashboard.collected")}
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm bg-chart-3" /> Pendiente
+            <span className="size-2.5 rounded-sm bg-chart-3" /> {t("dashboard.pending_chart")}
           </span>
         </div>
         <div className="mt-4 overflow-x-auto">
@@ -281,6 +290,7 @@ function CashFlowChart({
 }
 
 export default function DashboardPage() {
+  const { t } = useLanguage();
   const [clients, setClients] = useState<Client[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,11 +300,11 @@ export default function DashboardPage() {
       try {
         const [cr, ir] = await Promise.all([getClients(), getInvoices()]);
         if (cr.success) setClients(cr.data || []);
-        else toast.error(cr.error || "Error al cargar clientes");
+        else toast.error(cr.error || t("dashboard.load_clients_error"));
         if (ir.success) setInvoices(ir.data || []);
-        else toast.error(ir.error || "Error al cargar facturas");
+        else toast.error(ir.error || t("dashboard.load_invoices_error"));
       } catch {
-        toast.error("Error al cargar datos del dashboard");
+        toast.error(t("dashboard.load_error"));
       } finally {
         setLoading(false);
       }
@@ -335,7 +345,7 @@ export default function DashboardPage() {
 
   const kpis: KpiData[] = [
     {
-      label: "Facturado Hoy",
+      label: t("dashboard.invoiced_today"),
       value: fmtCurrency(facturadoHoy),
       change: facturadoChange.change,
       positive: facturadoChange.positive,
@@ -345,7 +355,7 @@ export default function DashboardPage() {
       chartData: hasSpark(facturadoSpark) ? facturadoSpark : null,
     },
     {
-      label: "Cobrado Hoy",
+      label: t("dashboard.collected_today"),
       value: fmtCurrency(cobradoHoy),
       change: cobradoChange.change,
       positive: cobradoChange.positive,
@@ -355,7 +365,7 @@ export default function DashboardPage() {
       chartData: hasSpark(cobradoSpark) ? cobradoSpark : null,
     },
     {
-      label: "Pendiente por Cobrar",
+      label: t("dashboard.pending"),
       value: fmtCurrency(pendienteTotal),
       change: "-",
       positive: false,
@@ -365,7 +375,7 @@ export default function DashboardPage() {
       chartData: hasSpark(pendienteSpark) ? pendienteSpark : null,
     },
     {
-      label: "Clientes Activos",
+      label: t("dashboard.active_clients"),
       value: String(clientesActivos),
       change: "-",
       positive: true,
@@ -393,23 +403,17 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      {/* Header */}
       <div className="flex flex-col gap-1 animate-fade sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Bienvenido de nuevo
+            {t("dashboard.title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Controla tus ingresos, cuentas de cobro y pagos desde un solo lugar.
+            {t("dashboard.subtitle")}
           </p>
         </div>
-        <Button className="mt-3 sm:mt-0">
-          <Plus className="mr-1.5 size-4" />
-          Nueva Cuenta de Cobro
-        </Button>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger">
         {kpis.map((kpi, i) => {
           const Icon = iconMap[kpi.icon] || TrendingUp;
@@ -430,7 +434,7 @@ export default function DashboardPage() {
                     <Sparkline data={kpi.chartData} color={kpi.color} />
                   ) : (
                     <span className="shrink-0 text-[10px] text-muted-foreground">
-                      Sin datos
+                      {t("dashboard.no_data")}
                     </span>
                   )}
                 </div>
@@ -458,7 +462,7 @@ export default function DashboardPage() {
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}
-                  <span className="text-muted-foreground">vs. mes anterior</span>
+                  <span className="text-muted-foreground">{t("dashboard.vs_last_month")}</span>
                 </div>
               </CardContent>
             </Card>
@@ -466,23 +470,21 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Cash Flow Chart */}
       <CashFlowChart
         billed={cashflow.billed}
         collected={cashflow.collected}
         pending={cashflow.pending}
         labels={cashflow.labels}
+        t={t}
       />
 
-      {/* Bottom row: Recent Invoices + Upcoming Deadlines */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Recent Invoices */}
         <Card className="animate-slide">
           <CardHeader className="border-b pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle>Cuentas Recientes</CardTitle>
+              <CardTitle>{t("dashboard.recent_invoices")}</CardTitle>
               <Button variant="ghost" size="xs" className="text-xs">
-                Ver todas
+                {t("dashboard.view_all")}
               </Button>
             </div>
           </CardHeader>
@@ -490,7 +492,7 @@ export default function DashboardPage() {
             <div className="divide-y divide-border">
               {recentInvoices.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No hay cuentas de cobro
+                  {t("dashboard.no_invoices")}
                 </div>
               ) : (
                 recentInvoices.map((inv) => {
@@ -528,13 +530,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Upcoming Deadlines */}
         <Card className="animate-slide">
           <CardHeader className="border-b pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle>Próximos Vencimientos</CardTitle>
+              <CardTitle>{t("dashboard.upcoming_due")}</CardTitle>
               <Button variant="ghost" size="xs" className="text-xs">
-                Ver todas
+                {t("dashboard.view_all")}
               </Button>
             </div>
           </CardHeader>
@@ -542,7 +543,7 @@ export default function DashboardPage() {
             <div className="divide-y divide-border">
               {pendingInvoices.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No hay vencimientos pendientes
+                  {t("dashboard.no_due")}
                 </div>
               ) : (
                 pendingInvoices.map((inv) => {

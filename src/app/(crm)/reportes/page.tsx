@@ -7,6 +7,7 @@ import { MONTHS, fmtCurrency, getInitials, getClientColor } from "@/lib/mock-dat
 import { getClients } from "@/app/actions/clients";
 import { getInvoices } from "@/app/actions/invoices";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { Client, Invoice } from "@/types";
 
 function TrendingUpIcon() {
@@ -74,6 +75,7 @@ type TopClient = {
 };
 
 export default function ReportesPage() {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -87,25 +89,25 @@ export default function ReportesPage() {
         ]);
 
         if (!invRes.success || !cliRes.success) {
-          toast.error(invRes.error || cliRes.error || "Error al cargar datos");
+          toast.error(invRes.error || cliRes.error || t("reportes.load_error"));
           return;
         }
 
         setInvoices(invRes.data ?? []);
         setClients(cliRes.data ?? []);
       } catch {
-        toast.error("Error al cargar datos de reportes");
+        toast.error(t("reportes.load_error"));
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, []);
+  }, [t]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Cargando reportes...</p>
+        <p className="text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
   }
@@ -172,17 +174,17 @@ export default function ReportesPage() {
 
   const donutData = [
     {
-      label: "Pagados",
+      label: t("status.paid"),
       pct: Math.round((paidCount / totalCount) * 100),
       color: "#10B981",
     },
     {
-      label: "Pendientes",
+      label: t("status.pending"),
       pct: Math.round((pendingCount / totalCount) * 100),
       color: "#F59E0B",
     },
     {
-      label: "Vencidos",
+      label: t("status.overdue"),
       pct: Math.round((overdueCount / totalCount) * 100),
       color: "#EF4444",
     },
@@ -192,10 +194,10 @@ export default function ReportesPage() {
     <div className="flex flex-col gap-6 p-6">
       <div>
         <h1 className="text-2xl font-heading font-semibold tracking-tight">
-          Reportes
+          {t("nav.reportes")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Dashboard financiero avanzado con proyecciones y análisis
+          {t("reportes.subtitle")}
         </p>
       </div>
 
@@ -205,7 +207,7 @@ export default function ReportesPage() {
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-muted-foreground">
-                  Ingresos del Mes
+                  {t("reportes.monthly_income")}
                 </span>
                 <span className="text-2xl font-bold tracking-tight">
                   {fmtCurrency(totalInvoiced)}
@@ -226,7 +228,7 @@ export default function ReportesPage() {
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-muted-foreground">
-                  Pagos Recibidos
+                  {t("reportes.payments_received")}
                 </span>
                 <span className="text-2xl font-bold tracking-tight">
                   {fmtCurrency(totalRecibido)}
@@ -244,7 +246,7 @@ export default function ReportesPage() {
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-muted-foreground">
-                  Proyección Anual
+                  {t("reportes.annual_projection")}
                 </span>
                 <span className="text-2xl font-bold tracking-tight">
                   {fmtCurrency(proyeccionAnual)}
@@ -261,14 +263,14 @@ export default function ReportesPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Ingresos Mensuales</CardTitle>
+            <CardTitle>{t("reportes.monthly_income_chart")}</CardTitle>
           </CardHeader>
           <CardContent>
             <svg
               viewBox="0 0 500 220"
               className="w-full h-auto"
               role="img"
-              aria-label="Gráfico de ingresos mensuales"
+              aria-label={t("reportes.monthly_income_chart_aria")}
             >
               {[0, 10, 20, 30, 40].map((v, i) => {
                 const y = 200 - (v / 40) * 200;
@@ -335,7 +337,7 @@ export default function ReportesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Clientes Más Rentables</CardTitle>
+            <CardTitle>{t("reportes.top_clients")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {topClients.map((client, i) => (
@@ -370,7 +372,7 @@ export default function ReportesPage() {
             ))}
             {topClients.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Sin datos de clientes
+                {t("reportes.no_client_data")}
               </p>
             )}
           </CardContent>
@@ -380,7 +382,7 @@ export default function ReportesPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Distribución de Pagos</CardTitle>
+            <CardTitle>{t("reportes.payment_distribution")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
@@ -388,7 +390,7 @@ export default function ReportesPage() {
                 viewBox="0 0 140 140"
                 className="size-[120px] shrink-0"
                 role="img"
-                aria-label="Gráfico de distribución de pagos"
+                aria-label={t("reportes.payment_distribution_aria")}
               >
                 {donutSegments(
                   donutData[0].pct,
@@ -419,7 +421,7 @@ export default function ReportesPage() {
                   className="fill-muted-foreground"
                   fontSize="9"
                 >
-                  Total
+                  {t("reportes.total")}
                 </text>
               </svg>
 
@@ -445,12 +447,12 @@ export default function ReportesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Pagos Pendientes</CardTitle>
+            <CardTitle>{t("reportes.pending_payments")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 p-3">
               <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
-                Total pendiente
+                {t("reportes.pending_total")}
               </span>
               <p className="text-xl font-bold text-amber-800 dark:text-amber-300">
                 {fmtCurrency(pendingTotal)}
@@ -497,7 +499,7 @@ export default function ReportesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Proyección de Ingresos</CardTitle>
+            <CardTitle>{t("reportes.income_projection")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-3 flex items-baseline gap-2">
@@ -505,14 +507,14 @@ export default function ReportesPage() {
                 {fmtCurrency(proyeccionAnual)}
               </span>
               <span className="text-xs font-medium text-emerald-600">
-                Proyección 12 meses
+                {t("reportes.projection_12_months")}
               </span>
             </div>
             <svg
               viewBox="0 0 300 120"
               className="w-full h-auto"
               role="img"
-              aria-label="Proyección de ingresos"
+              aria-label={t("reportes.income_projection_aria")}
             >
               {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
                 const y = 100 - ratio * 100;

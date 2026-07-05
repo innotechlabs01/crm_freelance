@@ -1,21 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
+import { useState, useCallback, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
 import { TrialBanner } from '@/components/layout/trial-banner'
 import { useUser } from '@/hooks/use-user'
+import { useInactivityTimeout } from '@/hooks/use-inactivity'
+import { useLanguage } from '@/lib/i18n/LanguageProvider'
 
-const pageTitles: Record<string, string> = {
-  dashboard: 'Dashboard',
-  clientes: 'Clientes',
-  'cuentas-cobro': 'Cuentas de Cobro',
-  pagos: 'Pagos',
-  reportes: 'Reportes',
-  calendario: 'Calendario',
-  configuracion: 'Configuración',
-}
+const PAGE_KEYS = ['dashboard', 'clientes', 'cuentas-cobro', 'pagos', 'reportes', 'calendario', 'configuracion']
 
 export default function CRMLayout({
   children,
@@ -23,19 +17,31 @@ export default function CRMLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { t } = useLanguage()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { user, plan, permissions } = useUser()
+  const { user, plan, subscription, permissions } = useUser()
+  useInactivityTimeout()
+
+  const subStatus = subscription?.status || 'inactive'
+  const isSubscriptionBlocked = subStatus === 'canceled' || subStatus === 'past_due' || subStatus === 'expired' || subStatus === 'paused'
+
+  useEffect(() => {
+    if (isSubscriptionBlocked && !pathname.includes('configuracion')) {
+      router.replace('/configuracion')
+    }
+  }, [isSubscriptionBlocked, pathname, router])
 
   const currentPage =
-    Object.keys(pageTitles).find((key) => pathname.includes(key)) || 'dashboard'
+    PAGE_KEYS.find((key) => pathname.includes(key)) || 'dashboard'
 
   const handleNavigate = useCallback((page: string) => {
     setMobileOpen(false)
-    window.location.href = `/${page === 'dashboard' ? '' : page}`
+    window.location.href = `/${page === 'dashboard' ? 'dashboard' : page}`
   }, [])
 
-  const title = pageTitles[currentPage] || 'Dashboard'
+  const title = t(`nav.${currentPage.replace(/-/g, '_')}`)
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -48,12 +54,13 @@ export default function CRMLayout({
         onMobileClose={() => setMobileOpen(false)}
         userEmail={user?.email ?? null}
         planName={plan?.display_name ?? null}
-        permissions={permissions}
+        permissions={isSubscriptionBlocked ? [] : permissions}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar
           title={title}
           onMenuClick={() => setMobileOpen(true)}
+          userEmail={user?.email ?? null}
         />
         <TrialBanner />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>

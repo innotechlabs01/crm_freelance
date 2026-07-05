@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import {
   Settings,
   User,
@@ -19,6 +21,7 @@ import {
   Loader2,
   ExternalLink,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/mock-data";
@@ -38,6 +50,8 @@ import {
   getFreelancerProfile,
   saveFreelancerProfile,
   getPaymentMethods,
+  createPaymentMethod,
+  deletePaymentMethod,
   getNotificationPrefs,
   saveNotificationPrefs,
 } from "@/app/actions/freelancer";
@@ -144,8 +158,13 @@ export default function ConfiguracionPage() {
   const [telefono, setTelefono] = useState("");
   const [nit, setNit] = useState("");
 
-  const [darkMode, setDarkMode] = useState(false);
-  const [idioma, setIdioma] = useState("es");
+  const { theme, setTheme } = useTheme();
+  const { locale, setLocale, t } = useLanguage();
+  const [darkMode, setDarkMode] = useState(theme === "dark");
+
+  useEffect(() => {
+    setDarkMode(theme === "dark");
+  }, [theme]);
 
   const [recordatorios, setRecordatorios] = useState(true);
   const [confirmacion, setConfirmacion] = useState(true);
@@ -153,6 +172,57 @@ export default function ConfiguracionPage() {
   const [actualizaciones, setActualizaciones] = useState(true);
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+
+  // Payment method dialog
+  const [pmDialogOpen, setPmDialogOpen] = useState(false);
+  const [pmName, setPmName] = useState("");
+  const [pmBank, setPmBank] = useState("");
+  const [pmAccountType, setPmAccountType] = useState("ahorros");
+  const [pmAccountNumber, setPmAccountNumber] = useState("");
+  const [pmPhone, setPmPhone] = useState("");
+  const [pmSaving, setPmSaving] = useState(false);
+
+  const handleAddPaymentMethod = async () => {
+    if (!pmName.trim()) {
+      toast.error("El nombre del metodo es obligatorio");
+      return;
+    }
+    setPmSaving(true);
+    const res = await createPaymentMethod({
+      name: pmName,
+      bank: pmBank,
+      accountType: pmAccountType,
+      accountNumber: pmAccountNumber,
+      phone: pmPhone,
+    });
+    setPmSaving(false);
+    if (res.success && res.data) {
+      setPaymentMethods((prev) => [...prev, res.data!]);
+      setPmDialogOpen(false);
+      resetPmForm();
+      toast.success("Metodo de pago agregado");
+    } else {
+      toast.error(res.error || "Error al agregar metodo de pago");
+    }
+  };
+
+  const handleDeletePaymentMethod = async (id: string) => {
+    const res = await deletePaymentMethod(id);
+    if (res.success) {
+      setPaymentMethods((prev) => prev.filter((m) => m.id !== id));
+      toast.success("Metodo de pago eliminado");
+    } else {
+      toast.error(res.error || "Error al eliminar metodo de pago");
+    }
+  };
+
+  const resetPmForm = () => {
+    setPmName("");
+    setPmBank("");
+    setPmAccountType("ahorros");
+    setPmAccountNumber("");
+    setPmPhone("");
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -318,7 +388,7 @@ export default function ConfiguracionPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Cargando configuracion...</p>
+        <p className="text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
   }
@@ -340,7 +410,7 @@ export default function ConfiguracionPage() {
             <CardHeader className="border-b pb-3">
               <div className="flex items-center gap-2">
                 <Crown className="size-4 text-muted-foreground" />
-                <CardTitle>Plan Actual</CardTitle>
+                <CardTitle>{t("settings.current_plan")}</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-4">
@@ -402,7 +472,7 @@ export default function ConfiguracionPage() {
                         ) : (
                           <ExternalLink className="mr-1.5 size-4" />
                         )}
-                        Gestionar Suscripcion
+                        {t("settings.manage_billing")}
                       </Button>
                     </div>
                     {!showCancelConfirm ? (
@@ -462,7 +532,7 @@ export default function ConfiguracionPage() {
             <CardContent className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Nombre Completo
+                  {t("settings.field_name")}
                 </label>
                 <Input
                   value={nombre}
@@ -507,7 +577,7 @@ export default function ConfiguracionPage() {
                 disabled={savingProfile}
               >
                 <User className="mr-1.5 size-4" />
-                {savingProfile ? "Guardando..." : "Guardar Cambios"}
+                {savingProfile ? t("settings.saving") : t("settings.save_profile")}
               </Button>
             </CardContent>
           </Card>
@@ -518,7 +588,7 @@ export default function ConfiguracionPage() {
             <CardHeader className="border-b pb-3">
               <div className="flex items-center gap-2">
                 <Settings className="size-4 text-muted-foreground" />
-                <CardTitle>Preferencias</CardTitle>
+                <CardTitle>{t("settings.preferences")}</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-4">
@@ -526,26 +596,26 @@ export default function ConfiguracionPage() {
                 <div className="flex items-center gap-3">
                   <Moon className="size-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium">Modo Oscuro</p>
+                    <p className="text-sm font-medium">{t("settings.dark_mode")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Activar tema oscuro en la aplicacion
+                      {t("settings.dark_mode_desc")}
                     </p>
                   </div>
                 </div>
-                <ToggleSwitch checked={darkMode} onCheckedChange={setDarkMode} />
+                <ToggleSwitch checked={darkMode} onCheckedChange={(v) => { setDarkMode(v); setTheme(v ? "dark" : "light"); }} />
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Globe className="size-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium">Idioma</p>
+                    <p className="text-sm font-medium">{t("settings.language")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Selecciona el idioma de la interfaz
+                      {t("settings.language_desc")}
                     </p>
                   </div>
                 </div>
-                <Select value={idioma} onValueChange={(v) => v && setIdioma(v)}>
+                <Select value={locale} onValueChange={(v) => { if (v) setLocale(v as "es" | "en"); }}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
@@ -560,7 +630,7 @@ export default function ConfiguracionPage() {
                 <div className="flex items-center gap-3">
                   <Clock className="size-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium">Zona Horaria</p>
+                    <p className="text-sm font-medium">{t("settings.timezone")}</p>
                     <p className="text-xs text-muted-foreground">
                       America/Bogota (GMT-5)
                     </p>
@@ -573,10 +643,10 @@ export default function ConfiguracionPage() {
                 <div className="flex items-center gap-3">
                   <Banknote className="size-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium">Moneda</p>
-                    <p className="text-xs text-muted-foreground">
-                      Dolar Estadounidense
-                    </p>
+                     <p className="text-sm font-medium">{t("settings.currency")}</p>
+                     <p className="text-xs text-muted-foreground">
+                       {t("settings.currency_desc")}
+                     </p>
                   </div>
                 </div>
                 <span className="text-xs font-medium">USD</span>
@@ -588,7 +658,7 @@ export default function ConfiguracionPage() {
             <CardHeader className="border-b pb-3">
               <div className="flex items-center gap-2">
                 <CreditCard className="size-4 text-muted-foreground" />
-                <CardTitle>Metodos de Pago</CardTitle>
+                <CardTitle>{t("settings.payment_methods")}</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 pt-4">
@@ -597,7 +667,7 @@ export default function ConfiguracionPage() {
                 return (
                   <div
                     key={method.id}
-                    className="flex items-center gap-3 rounded-lg border p-3"
+                    className="flex items-center gap-3 rounded-lg border p-3 group"
                   >
                     <div
                       className={cn(
@@ -613,6 +683,14 @@ export default function ConfiguracionPage() {
                         {getPaymentMethodDescription(method)}
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleDeletePaymentMethod(method.id)}
+                    >
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
                   </div>
                 );
               })}
@@ -621,24 +699,105 @@ export default function ConfiguracionPage() {
                   Sin metodos de pago registrados
                 </p>
               )}
-              <Button variant="outline" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setPmDialogOpen(true)}
+              >
                 <Plus className="mr-1.5 size-4" />
                 Agregar Metodo de Pago
               </Button>
             </CardContent>
           </Card>
 
+          {/* Add Payment Method Dialog */}
+          <Dialog open={pmDialogOpen} onOpenChange={setPmDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Agregar Metodo de Pago</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pmName">Nombre del metodo</Label>
+                  <Input
+                    id="pmName"
+                    placeholder="Ej. Nequi, Daviplata, Bancolombia"
+                    value={pmName}
+                    onChange={(e) => setPmName(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pmBank">Banco</Label>
+                  <Input
+                    id="pmBank"
+                    placeholder="Ej. Bancolombia"
+                    value={pmBank}
+                    onChange={(e) => setPmBank(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pmAccountType">Tipo de Cuenta</Label>
+                  <Select value={pmAccountType} onValueChange={(v) => v && setPmAccountType(v)}>
+                    <SelectTrigger id="pmAccountType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ahorros">Ahorros</SelectItem>
+                      <SelectItem value="corriente">Corriente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pmAccountNumber">Numero de Cuenta / Telefono</Label>
+                  <Input
+                    id="pmAccountNumber"
+                    placeholder="000-123456-78"
+                    value={pmAccountNumber}
+                    onChange={(e) => setPmAccountNumber(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pmPhone">Telefono (Nequi/Daviplata)</Label>
+                  <Input
+                    id="pmPhone"
+                    placeholder="3001234567"
+                    value={pmPhone}
+                    onChange={(e) => setPmPhone(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose
+                  render={<Button variant="outline" />}
+                  onClick={resetPmForm}
+                >
+                  Cancelar
+                </DialogClose>
+                <Button onClick={handleAddPaymentMethod} disabled={pmSaving}>
+                  {pmSaving ? (
+                    <>
+                      <Loader2 className="size-4 mr-1.5 animate-spin" />
+                      {t("settings.saving")}
+                    </>
+                  ) : (
+                    "Agregar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Card className="animate-slide">
             <CardHeader className="border-b pb-3">
               <div className="flex items-center gap-2">
                 <Bell className="size-4 text-muted-foreground" />
-                <CardTitle>Notificaciones</CardTitle>
+                <CardTitle>{t("settings.notifications")}</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Recordatorios de pago</p>
+                  <p className="text-sm font-medium">{t("settings.notif_payment_reminders")}</p>
                   <p className="text-xs text-muted-foreground">
                     Recibe notificaciones antes de cada vencimiento
                   </p>
@@ -664,7 +823,7 @@ export default function ConfiguracionPage() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Resumen semanal</p>
+                  <p className="text-sm font-medium">{t("settings.notif_weekly")}</p>
                   <p className="text-xs text-muted-foreground">
                     Recibe un resumen de actividad cada lunes
                   </p>
@@ -678,7 +837,7 @@ export default function ConfiguracionPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">
-                    Actualizaciones del sistema
+                    {t("settings.notif_system")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Noticias, mejoras y nuevas funcionalidades

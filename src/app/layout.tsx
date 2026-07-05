@@ -5,6 +5,7 @@ import { esES } from '@clerk/localizations'
 import { ThemeProvider } from '@/components/layout/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/components/auth/auth-provider'
+import { LanguageProvider } from '@/lib/i18n/LanguageProvider'
 import { Toaster } from 'sonner'
 import './globals.css'
 
@@ -38,10 +39,12 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            <TooltipProvider delay={300}>
-              <AuthProvider>{children}</AuthProvider>
-              <Toaster richColors closeButton position="top-right" />
-            </TooltipProvider>
+            <LanguageProvider>
+              <TooltipProvider delay={300}>
+                <AuthProvider>{children}</AuthProvider>
+                <Toaster richColors closeButton position="top-right" />
+              </TooltipProvider>
+            </LanguageProvider>
           </ThemeProvider>
         </body>
       </html>

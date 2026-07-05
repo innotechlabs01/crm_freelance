@@ -17,31 +17,20 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { useLanguage } from '@/lib/i18n/LanguageProvider'
 
-const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-  { id: 'clientes', label: 'Clientes', icon: Users, href: '/clientes' },
-  {
-    id: 'cuentas-cobro',
-    label: 'Cuentas de Cobro',
-    icon: FileText,
-    href: '/cuentas-cobro',
-  },
-  { id: 'pagos', label: 'Pagos', icon: CreditCard, href: '/pagos' },
-  { id: 'reportes', label: 'Reportes', icon: BarChart3, href: '/reportes' },
-  {
-    id: 'calendario',
-    label: 'Calendario',
-    icon: Calendar,
-    href: '/calendario',
-  },
-  {
-    id: 'configuracion',
-    label: 'Configuración',
-    icon: Settings,
-    href: '/configuracion',
-  },
-]
+function useNavItems() {
+  const { t } = useLanguage()
+  return [
+    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, href: '/dashboard' },
+    { id: 'clientes', label: t('nav.clientes'), icon: Users, href: '/clientes' },
+    { id: 'cuentas-cobro', label: t('nav.cuentas_cobro'), icon: FileText, href: '/cuentas-cobro' },
+    { id: 'pagos', label: t('nav.pagos'), icon: CreditCard, href: '/pagos' },
+    { id: 'reportes', label: t('nav.reportes'), icon: BarChart3, href: '/reportes' },
+    { id: 'calendario', label: t('nav.calendario'), icon: Calendar, href: '/calendario' },
+    { id: 'configuracion', label: t('nav.configuracion'), icon: Settings, href: '/configuracion' },
+  ]
+}
 
 interface SidebarProps {
   currentPage: string
@@ -56,7 +45,7 @@ interface SidebarProps {
 }
 
 function getPlanBadge(planName?: string | null) {
-  if (!planName) return { label: 'PRO', className: '' }
+  if (!planName) return { label: 'FREE', className: 'bg-muted text-muted-foreground border-border' }
   switch (planName.toLowerCase()) {
     case 'free':
       return { label: 'FREE', className: 'bg-muted text-muted-foreground border-border' }
@@ -65,7 +54,7 @@ function getPlanBadge(planName?: string | null) {
     case 'enterprise':
       return { label: 'ENT', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' }
     default:
-      return { label: 'PRO', className: '' }
+      return { label: 'FREE', className: 'bg-muted text-muted-foreground border-border' }
   }
 }
 
@@ -85,6 +74,8 @@ export function Sidebar({
   planName,
   permissions = [],
 }: SidebarProps) {
+  const { t } = useLanguage()
+  const navItems = useNavItems()
   const planBadge = getPlanBadge(planName)
   const initial = getInitials(userEmail)
 
@@ -129,7 +120,7 @@ export function Sidebar({
                   FC
                 </span>
               </div>
-              <span className="text-sm font-semibold">Freelance CRM</span>
+              <span className="text-sm font-semibold">{t('sidebar.brand')}</span>
               <Badge
                 variant="default"
                 className={cn(
@@ -211,7 +202,7 @@ export function Sidebar({
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="truncate text-xs text-muted-foreground">
-                {userEmail ?? 'Sin sesión'}
+                {userEmail ?? t('sidebar.no_session')}
               </p>
             </div>
           )}

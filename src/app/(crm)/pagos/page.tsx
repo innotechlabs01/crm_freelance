@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,58 +16,56 @@ import { getInvoices, updateInvoiceStatus } from "@/app/actions/invoices";
 import { getClients } from "@/app/actions/clients";
 import type { Invoice, InvoiceStatus, Client } from "@/types";
 import { Loader2 } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type ColumnKey = "pending" | "sent" | "overdue" | "paid";
 
-const COLUMNS: {
-  key: ColumnKey;
-  label: string;
-  color: string;
-  bg: string;
-  border: string;
-  dot: string;
-}[] = [
-  {
-    key: "pending",
-    label: "Pendiente",
-    color: "text-amber-600 dark:text-amber-400",
-    bg: "bg-amber-50 dark:bg-amber-950/40",
-    border: "border-amber-200 dark:border-amber-800",
-    dot: "bg-amber-500",
-  },
-  {
-    key: "sent",
-    label: "Enviada",
-    color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-50 dark:bg-blue-950/40",
-    border: "border-blue-200 dark:border-blue-800",
-    dot: "bg-blue-500",
-  },
-  {
-    key: "overdue",
-    label: "Por Vencer",
-    color: "text-red-600 dark:text-red-400",
-    bg: "bg-red-50 dark:bg-red-950/40",
-    border: "border-red-200 dark:border-red-800",
-    dot: "bg-red-500",
-  },
-  {
-    key: "paid",
-    label: "Pagada",
-    color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-50 dark:bg-emerald-950/40",
-    border: "border-emerald-200 dark:border-emerald-800",
-    dot: "bg-emerald-500",
-  },
-];
-
 export default function PagosPage() {
+  const { t } = useLanguage();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clientsMap, setClientsMap] = useState<Record<number, Client>>({});
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<ColumnKey | null>(null);
   const originalStatusRef = useRef<InvoiceStatus | null>(null);
+
+  const COLUMNS = useMemo(
+    () => [
+      {
+        key: "pending" as ColumnKey,
+        label: t("payments.pending"),
+        color: "text-amber-600 dark:text-amber-400",
+        bg: "bg-amber-50 dark:bg-amber-950/40",
+        border: "border-amber-200 dark:border-amber-800",
+        dot: "bg-amber-500",
+      },
+      {
+        key: "sent" as ColumnKey,
+        label: t("payments.sent"),
+        color: "text-blue-600 dark:text-blue-400",
+        bg: "bg-blue-50 dark:bg-blue-950/40",
+        border: "border-blue-200 dark:border-blue-800",
+        dot: "bg-blue-500",
+      },
+      {
+        key: "overdue" as ColumnKey,
+        label: t("payments.due_soon"),
+        color: "text-red-600 dark:text-red-400",
+        bg: "bg-red-50 dark:bg-red-950/40",
+        border: "border-red-200 dark:border-red-800",
+        dot: "bg-red-500",
+      },
+      {
+        key: "paid" as ColumnKey,
+        label: t("payments.paid"),
+        color: "text-emerald-600 dark:text-emerald-400",
+        bg: "bg-emerald-50 dark:bg-emerald-950/40",
+        border: "border-emerald-200 dark:border-emerald-800",
+        dot: "bg-emerald-500",
+      },
+    ],
+    [t],
+  );
 
   const fetchData = async () => {
     setLoading(true);
@@ -76,7 +74,7 @@ export default function PagosPage() {
       getClients(),
     ]);
     if (invRes.success) setInvoices(invRes.data || []);
-    else toast.error(invRes.error || "Error al cargar facturas");
+    else toast.error(invRes.error || t("invoices.load_error"));
     if (cliRes.success) {
       setClientsMap(
         (cliRes.data || []).reduce(
@@ -88,7 +86,7 @@ export default function PagosPage() {
         ),
       );
     } else {
-      toast.error(cliRes.error || "Error al cargar clientes");
+      toast.error(cliRes.error || t("invoices.load_clients_error"));
     }
     setLoading(false);
   };
@@ -147,10 +145,10 @@ export default function PagosPage() {
             inv.id === id ? { ...inv, status: originalStatus } : inv,
           ),
         );
-        toast.error(r.error || "Error al actualizar estado");
+        toast.error(r.error || t("payments.update_error"));
       }
     },
-    [dragId],
+    [dragId, t],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -176,10 +174,10 @@ export default function PagosPage() {
     <div className="flex flex-col gap-6 p-6">
       <div>
         <h1 className="text-2xl font-heading font-semibold tracking-tight">
-          Pagos
+          {t("payments.title")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Arrastra las tarjetas para cambiar su estado
+          {t("payments.subtitle")}
         </p>
       </div>
 
@@ -272,7 +270,7 @@ export default function PagosPage() {
 
                 {colInvoices.length === 0 && (
                   <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
-                    Sin facturas
+                    {t("payments.empty")}
                   </div>
                 )}
               </div>
