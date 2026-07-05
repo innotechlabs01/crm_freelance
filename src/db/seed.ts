@@ -10,7 +10,7 @@ export default async function seedDatabase(): Promise<void> {
   const proPlanId = crypto.randomUUID();
   const enterprisePlanId = crypto.randomUUID();
 
-  const planInserts = [
+  const planStatements = [
     {
       sql: `INSERT OR IGNORE INTO plans (id, name, display_name, price, max_clients, max_invoices_per_month, features_json)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -19,7 +19,7 @@ export default async function seedDatabase(): Promise<void> {
   ]
 
   if (proPriceId) {
-    planInserts.push({
+    planStatements.push({
       sql: `INSERT INTO plans (id, name, display_name, price, paddle_price_id, paddle_product_id, max_clients, max_invoices_per_month, features_json, is_active)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             ON CONFLICT(name) DO UPDATE SET
@@ -36,7 +36,7 @@ export default async function seedDatabase(): Promise<void> {
   }
 
   if (enterprisePriceId) {
-    planInserts.push({
+    planStatements.push({
       sql: `INSERT INTO plans (id, name, display_name, price, paddle_price_id, paddle_product_id, max_clients, max_invoices_per_month, features_json, is_active)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             ON CONFLICT(name) DO UPDATE SET
@@ -52,32 +52,29 @@ export default async function seedDatabase(): Promise<void> {
     })
   }
 
-  await db.batch(planInserts);
+  await db.batch(planStatements);
 
-  const freeRoleId = crypto.randomUUID();
-  const proRoleId = crypto.randomUUID();
-  const enterpriseRoleId = crypto.randomUUID();
-  const superadminRoleId = crypto.randomUUID();
-
+  // Upsert roles (keep existing IDs, just ensure they exist)
   await db.batch([
     {
       sql: `INSERT OR IGNORE INTO roles (id, name, description) VALUES (?, ?, ?)`,
-      args: [freeRoleId, 'FREE_USER', 'Default role for free plan users'],
+      args: [crypto.randomUUID(), 'FREE_USER', 'Default role for free plan users'],
     },
     {
       sql: `INSERT OR IGNORE INTO roles (id, name, description) VALUES (?, ?, ?)`,
-      args: [proRoleId, 'PROFESSIONAL_USER', 'Role for professional plan users'],
+      args: [crypto.randomUUID(), 'PROFESSIONAL_USER', 'Role for professional plan users'],
     },
     {
       sql: `INSERT OR IGNORE INTO roles (id, name, description) VALUES (?, ?, ?)`,
-      args: [enterpriseRoleId, 'ENTERPRISE_OWNER', 'Role for enterprise plan owners'],
+      args: [crypto.randomUUID(), 'ENTERPRISE_OWNER', 'Role for enterprise plan owners'],
     },
     {
       sql: `INSERT OR IGNORE INTO roles (id, name, description) VALUES (?, ?, ?)`,
-      args: [superadminRoleId, 'SUPERADMIN', 'Super administrador del sistema'],
+      args: [crypto.randomUUID(), 'SUPERADMIN', 'Super administrador del sistema'],
     },
   ]);
 
+  // Upsert permissions (keep existing IDs, just ensure they exist)
   const permissionNames = [
     'create_client', 'create_invoice', 'view_basic_dashboard',
     'ai_access', 'reminders', 'advanced_reports', 'cashflow',
@@ -85,17 +82,23 @@ export default async function seedDatabase(): Promise<void> {
     'white_label', 'api_access', 'unlimited_clients', 'unlimited_invoices',
   ];
 
-  const permissionIds: Record<string, string> = {};
-  const permInserts = permissionNames.map((name) => {
-    const id = crypto.randomUUID();
-    permissionIds[name] = id;
-    return {
-      sql: `INSERT OR IGNORE INTO permissions (id, name) VALUES (?, ?)`,
-      args: [id, name],
-    };
-  });
-
+  const permInserts = permissionNames.map((name) => ({
+    sql: `INSERT OR IGNORE INTO permissions (id, name) VALUES (?, ?)`,
+    args: [crypto.randomUUID(), name],
+  }));
   await db.batch(permInserts);
+
+  // Resolve actual IDs from the database (migration 006 may have used different IDs)
+  const roleRows = (await db.execute('SELECT id, name FROM roles')).rows as unknown as { id: string; name: string }[];
+  const roleMap = Object.fromEntries(roleRows.map(r => [r.name, r.id]));
+
+  const permRows = (await db.execute('SELECT id, name FROM permissions')).rows as unknown as { id: string; name: string }[];
+  const permMap = Object.fromEntries(permRows.map(r => [r.name, r.id]));
+
+  const freeRoleId = roleMap['FREE_USER'];
+  const proRoleId = roleMap['PROFESSIONAL_USER'];
+  const enterpriseRoleId = roleMap['ENTERPRISE_OWNER'];
+  const superadminRoleId = roleMap['SUPERADMIN'];
 
   const freePerms = ['create_client', 'create_invoice', 'view_basic_dashboard'];
   const proPerms = [
@@ -106,27 +109,52 @@ export default async function seedDatabase(): Promise<void> {
 
   const rolePermInserts: { sql: string; args: string[] }[] = [];
 
-  for (const perm of freePerms) {
-    rolePermInserts.push({
-      sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
-      args: [freeRoleId, permissionIds[perm]],
-    });
+  if (freeRoleId) {
+    for (const perm of freePerms) {
+      const permId = permMap[perm];
+      if (permId) {
+        rolePermInserts.push({
+          sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
+          args: [freeRoleId, permId],
+        });
+      }
+    }
   }
-  for (const perm of proPerms) {
-    rolePermInserts.push({
-      sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
-      args: [proRoleId, permissionIds[perm]],
-    });
+
+  if (proRoleId) {
+    for (const perm of proPerms) {
+      const permId = permMap[perm];
+      if (permId) {
+        rolePermInserts.push({
+          sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
+          args: [proRoleId, permId],
+        });
+      }
+    }
   }
-  for (const perm of permissionNames) {
-    rolePermInserts.push({
-      sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
-      args: [enterpriseRoleId, permissionIds[perm]],
-    });
-    rolePermInserts.push({
-      sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
-      args: [superadminRoleId, permissionIds[perm]],
-    });
+
+  if (enterpriseRoleId) {
+    for (const perm of permissionNames) {
+      const permId = permMap[perm];
+      if (permId) {
+        rolePermInserts.push({
+          sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
+          args: [enterpriseRoleId, permId],
+        });
+      }
+    }
+  }
+
+  if (superadminRoleId) {
+    for (const perm of permissionNames) {
+      const permId = permMap[perm];
+      if (permId) {
+        rolePermInserts.push({
+          sql: `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`,
+          args: [superadminRoleId, permId],
+        });
+      }
+    }
   }
 
   await db.batch(rolePermInserts);
