@@ -288,6 +288,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "upgrade.error": "Error al crear la sesión de pago",
     "upgrade.no_url": "No se recibió la URL de pago",
 
+    // ── Configuracion ───────────────────────────────────────────
+    "config.verifying_payment": "Verificando pago...",
+    "config.payment_verified": "¡Pago verificado! Tu plan ha sido actualizado.",
+    "config.payment_verification_failed": "No se pudo verificar el pago. Intenta recargar la página.",
+
     // ── Topbar ──────────────────────────────────────────────────
     "topbar.open_menu": "Abrir menú",
     "topbar.switch_light": "Cambiar a modo claro",
@@ -584,6 +589,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "upgrade.now": "Upgrade Now",
     "upgrade.error": "Error creating payment session",
     "upgrade.no_url": "Payment URL not received",
+
+    // ── Configuracion ───────────────────────────────────────────
+    "config.verifying_payment": "Verifying payment...",
+    "config.payment_verified": "Payment verified! Your plan has been updated.",
+    "config.payment_verification_failed": "Could not verify payment. Try reloading the page.",
 
     // ── Topbar ──────────────────────────────────────────────────
     "topbar.open_menu": "Open menu",

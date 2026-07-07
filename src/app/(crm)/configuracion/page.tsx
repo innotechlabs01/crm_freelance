@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import {
@@ -172,6 +173,44 @@ export default function ConfiguracionPage() {
   const [actualizaciones, setActualizaciones] = useState(true);
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+
+  const searchParams = useSearchParams();
+  const isCheckoutSuccess = searchParams.get('checkout') === 'success';
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [pollAttempts, setPollAttempts] = useState(0);
+
+  const pollPayment = useCallback(async () => {
+    await refreshLimits();
+    setPollAttempts(p => p + 1);
+  }, [refreshLimits]);
+
+  useEffect(() => {
+    if (!isCheckoutSuccess) return;
+    setVerifyingPayment(true);
+  }, [isCheckoutSuccess]);
+
+  useEffect(() => {
+    if (!verifyingPayment) return;
+    if (pollAttempts >= 15) {
+      setVerifyingPayment(false);
+      toast.error(t('config.payment_verification_failed'));
+      return;
+    }
+    const timer = setTimeout(pollPayment, 2000);
+    return () => clearTimeout(timer);
+  }, [verifyingPayment, pollAttempts, pollPayment, t]);
+
+  useEffect(() => {
+    if (!verifyingPayment) return;
+    if (plan?.name && plan.name !== 'free') {
+      setVerifyingPayment(false);
+      toast.success(t('config.payment_verified'));
+      const url = new URL(window.location.href);
+      url.searchParams.delete('checkout');
+      url.searchParams.delete('_ptxn');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [plan?.name, verifyingPayment, t]);
 
   // Payment method dialog
   const [pmDialogOpen, setPmDialogOpen] = useState(false);
@@ -384,6 +423,15 @@ export default function ConfiguracionPage() {
   const isPastDue = subscription?.status === "past_due";
 
   const userInitials = nombre ? getInitials(nombre) : "??";
+
+  if (verifyingPayment) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">{t('config.verifying_payment')}</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
