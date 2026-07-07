@@ -59,6 +59,7 @@ export const paddleApi = {
       const transaction = await paddle.transactions.create({
         items: [{ priceId, quantity: 1 }],
         customData: { userId },
+        checkout: { url: successUrl },
       })
 
       return {

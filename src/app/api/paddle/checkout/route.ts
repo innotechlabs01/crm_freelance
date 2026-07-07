@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Plan no encontrado o no configurado con Paddle' }, { status: 404 })
       }
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000'
+      const proto = request.headers.get('x-forwarded-proto') || 'http'
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`
       const successUrl = `${appUrl}/configuracion?checkout=success`
 
       const result_1 = await paddleApi.createCheckout(
