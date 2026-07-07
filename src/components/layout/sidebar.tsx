@@ -42,6 +42,7 @@ interface SidebarProps {
   userEmail?: string | null
   planName?: string | null
   permissions?: string[]
+  isLoading?: boolean
 }
 
 function getPlanBadge(planName?: string | null) {
@@ -73,6 +74,7 @@ export function Sidebar({
   userEmail,
   planName,
   permissions = [],
+  isLoading = false,
 }: SidebarProps) {
   const { t } = useLanguage()
   const navItems = useNavItems()
@@ -80,8 +82,9 @@ export function Sidebar({
   const initial = getInitials(userEmail)
 
   const visibleNavItems = navItems.filter((item) => {
-    if (item.id === 'reportes' && !permissions.includes('advanced_reports')) {
-      return false
+    if (item.id === 'reportes') {
+      if (isLoading) return true
+      if (!permissions.includes('advanced_reports')) return false
     }
     return true
   })

@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 429) {
         toast.error('Límite de solicitudes alcanzado. Espera un momento antes de continuar.');
+        setTimeout(() => fetchMe(), 3000);
         return;
       }
       if (res.ok) {

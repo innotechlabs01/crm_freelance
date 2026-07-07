@@ -21,7 +21,7 @@ export default function CRMLayout({
   const { t } = useLanguage()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { user, plan, subscription, permissions } = useUser()
+  const { user, plan, subscription, permissions, isLoading } = useUser()
   useInactivityTimeout()
 
   const subStatus = subscription?.status || 'inactive'
@@ -55,6 +55,7 @@ export default function CRMLayout({
         userEmail={user?.email ?? null}
         planName={plan?.display_name ?? null}
         permissions={isSubscriptionBlocked ? [] : permissions}
+        isLoading={isLoading}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar
