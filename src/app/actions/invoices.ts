@@ -67,7 +67,69 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
     }
   }
 
-  export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string }> {
+  export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ success: boolean; data?: Invoice; error?: string }> {
+  try {
+    const userId = await getAuthUserId();
+    if (!userId) return { success: false, error: 'No autorizado' };
+
+    // Ensure server-side plan limit enforcement
+    const userPlan = await getUserPlan(userId);
+    if (userPlan) {
+      const maxInvoices = userPlan.max_invoices as number;
+      if (maxInvoices > 0) {
+        const count = await getMonthlyInvoiceCount(userId, new Date());
+        if (count >= maxInvoices) {
+          return { success: false, error: 'Has alcanzado el límite de facturas mensuales de tu plan' };
+        }
+      }
+    }
+
+    return withRateLimit(userId, rateLimitWrite, async () => {
+      const result = await db.execute({
+        sql: `INSERT INTO invoices (user_id, client_id, client_name, concept, value, date, status, priority, description, subtotal, tax_val, ret_val, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          userId,
+          form.clientId,
+          form.client,
+          form.concept,
+          form.value,
+          form.date,
+          form.status,
+          form.priority,
+          form.description,
+          form.subtotal,
+          form.taxVal,
+          form.retVal,
+          form.total,
+        ],
+      });
+
+      const data: Invoice = {
+        id: result.lastInsertRowid as unknown as string,
+        client: form.client,
+        clientId: form.clientId,
+        date: form.date,
+        value: form.value,
+        status: form.status,
+        concept: form.concept,
+        priority: form.priority,
+        description: form.description,
+        subtotal: form.subtotal,
+        taxVal: form.taxVal,
+        retVal: form.retVal,
+        total: form.total,
+      };
+
+      return { success: true, data };
+    });
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
+\n<{ success: boolean; error?: string }> {
   try {
     const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
