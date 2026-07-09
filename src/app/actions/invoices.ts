@@ -130,42 +130,8 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
   }
 }
 export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const userId = await getAuthUserId();
-    if (!userId) return { success: false, error: 'No autorizado' };
-
-    return withRateLimit(userId, rateLimitWrite, async () => {
-      await db.execute({
-        sql: 'DELETE FROM invoices WHERE id = ? AND user_id = ?',
-        args: [id, userId],
-      });
-
-      return { success: true };
-    });
-  } catch (e) {
-    if (e instanceof RateLimitError) {
-      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
-    }
-    return { success: false, error: 'Error interno del servidor' };
-  }
+// duplicate deleteInvoice implementation removed
 }
 
-  try {
-    const userId = await getAuthUserId();
-    if (!userId) return { success: false, error: 'No autorizado' };
-
-    return withRateLimit(userId, rateLimitWrite, async () => {
-      await db.execute({
-        sql: 'DELETE FROM invoices WHERE id = ? AND user_id = ?',
-        args: [id, userId],
-      });
-
-      return { success: true };
-    });
-  } catch (e) {
-    if (e instanceof RateLimitError) {
-      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
-    }
-    return { success: false, error: 'Error interno del servidor' };
-  }
+// duplicate deleteInvoice implementation removed
 }
