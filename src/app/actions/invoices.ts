@@ -49,7 +49,25 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
   }
 }
 
-export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string }> {
+  // Fetch all invoices for the authenticated user sorted by date descending.
+  export async function getInvoices(): Promise<{ success: boolean; data?: Invoice[]; error?: string }> {
+    try {
+      const userId = await getAuthUserId();
+      if (!userId) return { success: false, error: 'No autorizado' };
+
+      const result = await db.execute({
+        sql: 'SELECT * FROM invoices WHERE user_id = ? ORDER BY date DESC',
+        args: [userId],
+      });
+
+      const data = result.rows.map(rowToInvoice);
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, error: 'Error interno del servidor' };
+    }
+  }
+
+  export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
