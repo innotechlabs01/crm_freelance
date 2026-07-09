@@ -53,7 +53,7 @@ import {
 } from "@/lib/mock-data";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { getClients } from "@/app/actions/clients";
-import { getInvoices, createInvoice } from "@/app/actions/invoices";
+import { getInvoices } from "@/app/actions/invoices";
 import { getFreelancerProfile } from "@/app/actions/freelancer";
 import { generateInvoiceHtml, sendInvoiceEmail } from "@/lib/email";
 import type { WithholdingType, Invoice, Client, Freelancer } from "@/types";
