@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAuthUserId } from '@/lib/server-auth';
@@ -24,10 +25,6 @@ function rowToInvoice(row: Record<string, unknown>): Invoice {
   };
 }
 
-
-
-
-
 export async function updateInvoiceStatus(id: string, status: Invoice['status']): Promise<{ success: boolean; error?: string }> {
   try {
     const userId = await getAuthUserId();
@@ -35,7 +32,7 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
 
     return withRateLimit(userId, rateLimitWrite, async () => {
       await db.execute({
-        sql: 'UPDATE invoices SET status = ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?',
+        sql: 'UPDATE invoices SET status = ?, updated_at = datetime("now") WHERE id = ? AND user_id = ?',
         args: [status, id, userId],
       });
 
@@ -49,30 +46,28 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
   }
 }
 
-  // Fetch all invoices for the authenticated user sorted by date descending.
-  export async function getInvoices(): Promise<{ success: boolean; data?: Invoice[]; error?: string }> {
-    try {
-      const userId = await getAuthUserId();
-      if (!userId) return { success: false, error: 'No autorizado' };
-
-      const result = await db.execute({
-        sql: 'SELECT * FROM invoices WHERE user_id = ? ORDER BY date DESC',
-        args: [userId],
-      });
-
-      const data = result.rows.map(rowToInvoice);
-      return { success: true, data };
-    } catch (e) {
-      return { success: false, error: 'Error interno del servidor' };
-    }
-  }
-
-  export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ success: boolean; data?: Invoice; error?: string }> {
+export async function getInvoices(): Promise<{ success: boolean; data?: Invoice[]; error?: string }> {
   try {
     const userId = await getAuthUserId();
     if (!userId) return { success: false, error: 'No autorizado' };
 
-    // Ensure server-side plan limit enforcement
+    const result = await db.execute({
+      sql: 'SELECT * FROM invoices WHERE user_id = ? ORDER BY date DESC',
+      args: [userId],
+    });
+
+    const data = result.rows.map(rowToInvoice);
+    return { success: true, data };
+  } catch (e) {
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
+
+export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ success: boolean; data?: Invoice; error?: string }> {
+  try {
+    const userId = await getAuthUserId();
+    if (!userId) return { success: false, error: 'No autorizado' };
+
     const userPlan = await getUserPlan(userId);
     if (userPlan) {
       const maxInvoices = userPlan.max_invoices as number;
@@ -129,9 +124,24 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
     return { success: false, error: 'Error interno del servidor' };
   }
 }
-export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string }> {
-// duplicate deleteInvoice implementation removed
-}
 
-// duplicate deleteInvoice implementation removed
+export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const userId = await getAuthUserId();
+    if (!userId) return { success: false, error: 'No autorizado' };
+
+    return withRateLimit(userId, rateLimitWrite, async () => {
+      await db.execute({
+        sql: 'DELETE FROM invoices WHERE id = ? AND user_id = ?',
+        args: [id, userId],
+      });
+
+      return { success: true };
+    });
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
+    return { success: false, error: 'Error interno del servidor' };
+  }
 }
