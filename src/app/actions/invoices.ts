@@ -1,16 +1,11 @@
 
 'use server';
 
-import { getAuthUserId 
- from '@/lib/server-auth';
-import { db 
- from '@/db/client';
-import { getUserPlan, getMonthlyInvoiceCount 
- from '@/lib/auth';
-import { withRateLimit, rateLimitWrite, RateLimitError 
- from '@/lib/rate-limit';
-import type { Invoice 
- from '@/types';
+import { getAuthUserId } from '@/lib/server-auth';
+import { db } from '@/db/client';
+import { getUserPlan, getMonthlyInvoiceCount } from '@/lib/auth';
+import { withRateLimit, rateLimitWrite, RateLimitError } from '@/lib/rate-limit';
+import type { Invoice } from '@/types';
 
 function rowToInvoice(row: Record<string, unknown>): Invoice {
   return {
@@ -27,75 +22,48 @@ function rowToInvoice(row: Record<string, unknown>): Invoice {
     taxVal: Number(row.tax_val || 0),
     retVal: Number(row.ret_val || 0),
     total: Number(row.total || 0),
-  
-;
+  };
+}
 
-
-
-export async function updateInvoiceStatus(id: string, status: Invoice['status']): Promise<{ success: boolean; error?: string 
-> {
+export async function updateInvoiceStatus(id: string, status: Invoice['status']): Promise<{ success: boolean; error?: string }> {
   try {
     const userId = await getAuthUserId();
-    if (!userId) return { success: false, error: 'No autorizado' 
-;
+    if (!userId) return { success: false, error: 'No autorizado' };
 
     return withRateLimit(userId, rateLimitWrite, async () => {
       await db.execute({
         sql: 'UPDATE invoices SET status = ?, updated_at = datetime("now") WHERE id = ? AND user_id = ?',
         args: [status, id, userId],
-      
-);
-
-      return { success: true 
-;
-    
-);
-  
- catch (e) {
+      });
+      return { success: true };
+    });
+  } catch (e) {
     if (e instanceof RateLimitError) {
-      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter
- segundos.` 
-;
-    
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
 
-    return { success: false, error: 'Error interno del servidor' 
-;
-  
-
-
-
-
-export async function getInvoices(): Promise<{ success: boolean; data?: Invoice[]; error?: string 
-> {
+export async function getInvoices(): Promise<{ success: boolean; data?: Invoice[]; error?: string }> {
   try {
     const userId = await getAuthUserId();
-    if (!userId) return { success: false, error: 'No autorizado' 
-;
-
+    if (!userId) return { success: false, error: 'No autorizado' };
     const result = await db.execute({
       sql: 'SELECT * FROM invoices WHERE user_id = ? ORDER BY date DESC',
       args: [userId],
-    
-);
-
+    });
     const data = result.rows.map(rowToInvoice);
-    return { success: true, data 
-;
-  
- catch (e) {
-    return { success: false, error: 'Error interno del servidor' 
-;
-  
+    return { success: true, data };
+  } catch (e) {
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
 
-
-
-
-export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ success: boolean; data?: Invoice; error?: string 
-> {
+export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ success: boolean; data?: Invoice; error?: string }> {
   try {
     const userId = await getAuthUserId();
-    if (!userId) return { success: false, error: 'No autorizado' 
-;
+    if (!userId) return { success: false, error: 'No autorizado' };
 
     const userPlan = await getUserPlan(userId);
     if (userPlan) {
@@ -103,14 +71,10 @@ export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ succes
       if (maxInvoices > 0) {
         const count = await getMonthlyInvoiceCount(userId, new Date());
         if (count >= maxInvoices) {
-          return { success: false, error: 'Has alcanzado el límite de facturas mensuales de tu plan' 
-;
-        
-
-      
-
-    
-
+          return { success: false, error: 'Has alcanzado el límite de facturas mensuales de tu plan' };
+        }
+      }
+    }
 
     return withRateLimit(userId, rateLimitWrite, async () => {
       const result = await db.execute({
@@ -130,8 +94,7 @@ export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ succes
           form.retVal,
           form.total,
         ],
-      
-);
+      });
 
       const data: Invoice = {
         id: result.lastInsertRowid as unknown as string,
@@ -147,57 +110,34 @@ export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ succes
         taxVal: form.taxVal,
         retVal: form.retVal,
         total: form.total,
-      
-;
-
-      return { success: true, data 
-;
-    
-);
-  
- catch (e) {
+      };
+      return { success: true, data };
+    });
+  } catch (e) {
     if (e instanceof RateLimitError) {
-      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter
- segundos.` 
-;
-    
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
 
-    return { success: false, error: 'Error interno del servidor' 
-;
-  
-
-
-
-
-export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string 
-> {
+export async function deleteInvoice(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     const userId = await getAuthUserId();
-    if (!userId) return { success: false, error: 'No autorizado' 
-;
+    if (!userId) return { success: false, error: 'No autorizado' };
 
     return withRateLimit(userId, rateLimitWrite, async () => {
       await db.execute({
         sql: 'DELETE FROM invoices WHERE id = ? AND user_id = ?',
         args: [id, userId],
-      
-);
-
-      return { success: true 
-;
-    
-);
-  
- catch (e) {
+      });
+      return { success: true };
+    });
+  } catch (e) {
     if (e instanceof RateLimitError) {
-      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter
- segundos.` 
-;
-    
-
-    return { success: false, error: 'Error interno del servidor' 
-;
-  
-
-
+      return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
+    }
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
 
