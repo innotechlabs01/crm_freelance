@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -145,7 +145,7 @@ function getPaymentMethodDescription(method: PaymentMethod): string {
   return method.accountNumber || "";
 }
 
-export default function ConfiguracionPage() {
+function ConfiguracionContent() {
   const { plan, subscription, isFree, refreshLimits } = useUser();
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -442,15 +442,15 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-1 animate-fade">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Configuracion
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Administra tu perfil, plan, preferencias y configuracion de la cuenta
-        </p>
-      </div>
+      <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col gap-1 animate-fade">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Configuracion
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Administra tu perfil, plan, preferencias y configuracion de la cuenta
+          </p>
+        </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-6">
@@ -897,9 +897,21 @@ export default function ConfiguracionPage() {
                 />
               </div>
             </CardContent>
-          </Card>
+           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ConfiguracionPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    }>
+      <ConfiguracionContent />
+    </Suspense>
   );
 }

@@ -12,13 +12,16 @@ export async function POST(request: NextRequest) {
     return withRateLimit(userId, rateLimitLemonsqueezy, async () => {
       const { planName } = await request.json()
 
+      console.log(`[paddle-checkout] Creating checkout for user ${userId}, plan: ${planName}`)
+
       const result = await db.execute({
         sql: 'SELECT id, paddle_price_id FROM plans WHERE name = ? AND is_active = 1',
         args: [planName],
       })
       const plan = result.rows[0]
       if (!plan || !plan.paddle_price_id) {
-        return NextResponse.json({ error: 'Plan no encontrado o no configurado con Paddle' }, { status: 404 })
+        console.error(`[paddle-checkout] Plan not found or missing paddle_price_id: ${planName}`)
+        return NextResponse.json({ error: 'Plan no encontrado o no configurado con Paddle. Verifica que las variables de entorno PADDLE_PRO_PRICE_ID esten configuradas.' }, { status: 404 })
       }
 
       const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000'
@@ -33,9 +36,11 @@ export async function POST(request: NextRequest) {
       )
 
       if (!result_1.url) {
+        console.error('[paddle-checkout] Paddle did not return a checkout URL')
         return NextResponse.json({ error: 'Paddle no devolvio una URL de checkout. Verifica el API key y el price ID.' }, { status: 500 })
       }
 
+      console.log(`[paddle-checkout] Checkout created successfully for user ${userId}`)
       return NextResponse.json({ url: result_1.url })
     })
   } catch (e) {

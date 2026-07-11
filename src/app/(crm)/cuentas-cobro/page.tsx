@@ -1,6 +1,7 @@
 "use client";
 
 import { createInvoice } from '@/app/actions/invoices';
+import { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Search,
@@ -267,15 +268,16 @@ export default function CuentasCobroPage() {
     const selectedRet = retencionOptions.find((r) => r.value === tipoRetencion);
     const r = await createInvoice({
       clientId: selectedClient.id,
-      clientName: selectedClient.name,
-      concepto,
-      descripcion,
-      valorBase: baseVal,
-      ivaPorcentaje: Number(ivaPorcentaje),
-      tipoRetencion,
-      retRate: (selectedRet?.rate ?? 0) / 100,
-      fechaEmision,
-      fechaVencimiento,
+      client: selectedClient.name,
+      concept: concepto,
+      description: descripcion,
+      value: baseVal,
+      subtotal: baseVal,
+      taxVal: ivaVal,
+      retVal: retVal,
+      total: totalVal,
+      date: fechaEmision,
+      status: "pending",
       priority: "medium",
     });
     setSubmitting(false);

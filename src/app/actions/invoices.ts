@@ -67,9 +67,9 @@ export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ succes
 
     const userPlan = await getUserPlan(userId);
     if (userPlan) {
-      const maxInvoices = userPlan.max_invoices as number;
+      const maxInvoices = userPlan.max_invoices_per_month as number;
       if (maxInvoices > 0) {
-        const count = await getMonthlyInvoiceCount(userId, new Date());
+        const count = await getMonthlyInvoiceCount(userId);
         if (count >= maxInvoices) {
           return { success: false, error: 'Has alcanzado el límite de facturas mensuales de tu plan' };
         }
@@ -81,18 +81,18 @@ export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ succes
         sql: `INSERT INTO invoices (user_id, client_id, client_name, concept, value, date, status, priority, description, subtotal, tax_val, ret_val, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           userId,
-          form.clientId,
-          form.client,
-          form.concept,
-          form.value,
-          form.date,
-          form.status,
-          form.priority,
-          form.description,
-          form.subtotal,
-          form.taxVal,
-          form.retVal,
-          form.total,
+          form.clientId ?? 0,
+          form.client ?? '',
+          form.concept ?? '',
+          form.value ?? 0,
+          form.date ?? '',
+          form.status ?? 'pending',
+          form.priority ?? 'medium',
+          form.description ?? '',
+          form.subtotal ?? 0,
+          form.taxVal ?? 0,
+          form.retVal ?? 0,
+          form.total ?? 0,
         ],
       });
 

@@ -32,10 +32,15 @@ export async function POST(request: NextRequest) {
   const customData = eventData.customData as { userId?: string } | undefined | null
   const userId = customData?.userId
 
+  console.log(`[paddle-webhook] Received event: ${eventType}, subscriptionId: ${subscriptionId}, userId: ${userId}`)
+
   try {
     switch (eventType) {
       case 'subscription.created': {
-        if (!userId) break
+        if (!userId) {
+          console.error('[paddle-webhook] subscription.created: No userId in customData')
+          break
+        }
 
         const status = (eventData.status as string) || 'active'
         const nextBilledAt = eventData.nextBilledAt as string | null
@@ -53,7 +58,11 @@ export async function POST(request: NextRequest) {
           })
           const planId = planResult.rows[0]?.id
           const planDisplayName = planResult.rows[0]?.display_name as string || 'Professional'
-          if (!planId) break
+          
+          if (!planId) {
+            console.error('[paddle-webhook] Professional plan not found in database. Running seed might be needed.')
+            break
+          }
 
           await db.execute({
             sql: `INSERT INTO subscriptions (id, user_id, plan_id, paddle_subscription_id, status, starts_at, renewal_at)
@@ -75,6 +84,8 @@ export async function POST(request: NextRequest) {
               event: eventType,
             })],
           })
+
+          console.log(`[paddle-webhook] Subscription created for user ${userId}, plan: professional`)
 
           if (userEmail) {
             sendWelcomeEmail(userEmail, planDisplayName)
@@ -119,10 +130,14 @@ export async function POST(request: NextRequest) {
             })],
           })
 
+          console.log(`[paddle-webhook] Transaction completed for subscription ${subscriptionId}, user ${existingUserId}`)
+
           if (userEmail) {
             const items = eventData.items as Array<{ price?: { name?: string } }> | undefined
             sendPaymentSuccessEmail(userEmail, items?.[0]?.price?.name || '')
           }
+        } else {
+          console.error(`[paddle-webhook] transaction.completed: Subscription ${subscriptionId} not found`)
         }
         break
       }
@@ -157,9 +172,13 @@ export async function POST(request: NextRequest) {
             })],
           })
 
+          console.log(`[paddle-webhook] Payment failed for subscription ${subscriptionId}, user ${existingUserId}`)
+
           if (userEmail) {
             sendPaymentFailedEmail(userEmail, GRACE_DAYS)
           }
+        } else {
+          console.error(`[paddle-webhook] transaction.payment_failed: Subscription ${subscriptionId} not found`)
         }
         break
       }
@@ -182,6 +201,10 @@ export async function POST(request: NextRequest) {
                   WHERE paddle_subscription_id = ?`,
             args: [status, (eventData.nextBilledAt as string) || null, subscriptionId],
           })
+
+          console.log(`[paddle-webhook] Subscription ${subscriptionId} updated to status: ${status}`)
+        } else {
+          console.error(`[paddle-webhook] subscription.updated: Subscription ${subscriptionId} not found`)
         }
         break
       }
@@ -220,9 +243,13 @@ export async function POST(request: NextRequest) {
             })],
           })
 
+          console.log(`[paddle-webhook] Subscription ${subscriptionId} canceled for user ${existingUserId}`)
+
           if (userEmail) {
             sendSubscriptionCancelledEmail(userEmail)
           }
+        } else {
+          console.error(`[paddle-webhook] subscription.canceled: Subscription ${subscriptionId} not found`)
         }
         break
       }

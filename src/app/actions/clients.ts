@@ -69,7 +69,7 @@ export async function createClient(form: Omit<Client, 'id' | 'totalInvoiced' | '
       const result = await db.execute({
         sql: `INSERT INTO clients (user_id, name, company, nit, email, phone, address, tax_type, bank, account_type, account_number, notes, status, color, initials)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
-        args: [userId, form.name, form.company, form.nit, form.email, form.phone, form.address || '', form.taxType, form.bank || '', form.accountType || 'ahorros', form.accountNumber || '', form.notes || '', color, initials],
+        args: [userId, form.name ?? '', form.company ?? '', form.nit ?? '', form.email ?? '', form.phone ?? '', form.address || '', form.taxType ?? 'regimen-comun', form.bank || '', form.accountType || 'ahorros', form.accountNumber || '', form.notes || '', color, initials],
       });
 
       return { success: true, data: { ...form, id: Number(result.lastInsertRowid), totalInvoiced: 0, status: 'active', color, initials } };
@@ -94,7 +94,7 @@ export async function updateClient(id: number, form: Omit<Client, 'id' | 'totalI
       await db.execute({
         sql: `UPDATE clients SET name=?, company=?, nit=?, email=?, phone=?, address=?, tax_type=?, bank=?, account_type=?, account_number=?, notes=?, initials=?, color=?, updated_at=datetime('now')
               WHERE id=? AND user_id=?`,
-        args: [form.name, form.company, form.nit, form.email, form.phone, form.address || '', form.taxType, form.bank || '', form.accountType || 'ahorros', form.accountNumber || '', form.notes || '', initials, color, id, userId],
+        args: [form.name ?? '', form.company ?? '', form.nit ?? '', form.email ?? '', form.phone ?? '', form.address || '', form.taxType ?? 'regimen-comun', form.bank || '', form.accountType || 'ahorros', form.accountNumber || '', form.notes || '', initials, color, id, userId],
       });
 
       return { success: true, data: { ...form, id, totalInvoiced: 0, status: 'active', color, initials } };
