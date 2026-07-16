@@ -13,13 +13,16 @@ function splitStatements(sql: string): string[] {
 }
 
 export async function runMigrations(): Promise<void> {
-  await db.execute(`
+  await db.execute({
+    sql: `
     CREATE TABLE IF NOT EXISTS _migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
       executed_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
-  `);
+  `,
+    args: [],
+  });
 
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
@@ -42,7 +45,7 @@ export async function runMigrations(): Promise<void> {
 
     for (const stmt of statements) {
       try {
-        await db.execute(stmt);
+        await db.execute({ sql: stmt, args: [] });
       } catch (err) {
         console.warn(`[migrate] Warning (non-fatal) in ${file}:`, String(err));
       }

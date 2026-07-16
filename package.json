@@ -22,6 +22,7 @@
     "@clerk/localizations": "^4.8.1",
     "@clerk/nextjs": "^7.5.2",
     "@libsql/client": "^0.17.4",
+    "@paddle/paddle-js": "^1.6.4",
     "@paddle/paddle-node-sdk": "^3.8.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
