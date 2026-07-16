@@ -33,13 +33,15 @@ export function useSessionManager() {
     }
 
     if (now - sessionStart > SESSION_MAX_MS) {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        // Ignore storage errors on cleanup
-      }
-      signOut();
-      router.push("/sign-in");
+      (async () => {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // Ignore storage errors on cleanup
+        }
+        await signOut();
+        router.push("/sign-in");
+      })();
       return;
     }
 
