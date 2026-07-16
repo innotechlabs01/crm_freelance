@@ -39,7 +39,11 @@ export function useSessionManager() {
         } catch {
           // Ignore storage errors on cleanup
         }
-        await signOut();
+        try {
+          await signOut();
+        } catch {
+          // SignOut may fail — still redirect
+        }
         router.push("/sign-in");
       })();
       return;
@@ -54,7 +58,11 @@ export function useSessionManager() {
         } catch {
           // Ignore storage errors on cleanup
         }
-        await signOut();
+        try {
+          await signOut();
+        } catch {
+          // SignOut may fail — still redirect
+        }
         router.push("/sign-in");
       }, INACTIVITY_LIMIT);
     }
