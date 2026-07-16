@@ -38,8 +38,8 @@ export default function CRMLayout({
 
   const handleNavigate = useCallback((page: string) => {
     setMobileOpen(false)
-    window.location.href = `/${page === 'dashboard' ? 'dashboard' : page}`
-  }, [])
+    router.push(page === 'dashboard' ? '/dashboard' : `/${page}`)
+  }, [router])
 
   const title = t(`nav.${currentPage.replace(/-/g, '_')}`)
 

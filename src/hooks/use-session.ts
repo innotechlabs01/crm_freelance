@@ -16,15 +16,28 @@ export function useSessionManager() {
   useEffect(() => {
     // --- 12-hour absolute session limit ---
     const now = Date.now();
-    let sessionStart = Number(localStorage.getItem(STORAGE_KEY));
+    let sessionStart: number;
+    try {
+      sessionStart = Number(localStorage.getItem(STORAGE_KEY));
+    } catch {
+      sessionStart = 0;
+    }
 
     if (!sessionStart || isNaN(sessionStart)) {
       sessionStart = now;
-      localStorage.setItem(STORAGE_KEY, String(sessionStart));
+      try {
+        localStorage.setItem(STORAGE_KEY, String(sessionStart));
+      } catch {
+        // Storage unavailable — continue without persistence
+      }
     }
 
     if (now - sessionStart > SESSION_MAX_MS) {
-      localStorage.removeItem(STORAGE_KEY);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Ignore storage errors on cleanup
+      }
       signOut();
       router.push("/sign-in");
       return;
@@ -34,7 +47,11 @@ export function useSessionManager() {
     function resetInactivityTimer() {
       if (inactivityRef.current) clearTimeout(inactivityRef.current);
       inactivityRef.current = setTimeout(async () => {
-        localStorage.removeItem(STORAGE_KEY);
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // Ignore storage errors on cleanup
+        }
         await signOut();
         router.push("/sign-in");
       }, INACTIVITY_LIMIT);
