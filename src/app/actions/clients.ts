@@ -41,6 +41,7 @@ export async function getClients(): Promise<{ success: boolean; data?: Client[];
     const data = result.rows.map(rowToClient);
     return { success: true, data };
   } catch (e) {
+    console.error('[clients/list]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -78,6 +79,7 @@ export async function createClient(form: Omit<Client, 'id' | 'totalInvoiced' | '
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[clients/create]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -103,6 +105,7 @@ export async function updateClient(id: number, form: Omit<Client, 'id' | 'totalI
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[clients/update]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -124,6 +127,7 @@ export async function deleteClient(id: number): Promise<{ success: boolean; erro
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[clients/delete]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }

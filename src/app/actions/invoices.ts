@@ -41,6 +41,7 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[invoices/update-status]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -56,6 +57,7 @@ export async function getInvoices(): Promise<{ success: boolean; data?: Invoice[
     const data = result.rows.map(rowToInvoice);
     return { success: true, data };
   } catch (e) {
+    console.error('[invoices/list]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -117,6 +119,7 @@ export async function createInvoice(form: Omit<Invoice, 'id'>): Promise<{ succes
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[invoices/create]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -137,6 +140,7 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean; err
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[invoices/delete]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }

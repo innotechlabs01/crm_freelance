@@ -104,6 +104,7 @@ export async function GET() {
         { status: 429, headers: { 'Retry-After': String(e.retryAfter) } }
       );
     }
+    console.error('[auth/me]', e);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

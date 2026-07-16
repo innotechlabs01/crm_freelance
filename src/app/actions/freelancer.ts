@@ -34,6 +34,7 @@ export async function getFreelancerProfile(): Promise<{ success: boolean; data?:
 
     return { success: true, data };
   } catch (e) {
+    console.error('[freelancer/profile]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -61,6 +62,7 @@ export async function saveFreelancerProfile(profile: Freelancer): Promise<{ succ
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[freelancer/save]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -86,6 +88,7 @@ export async function getPaymentMethods(): Promise<{ success: boolean; data?: { 
 
     return { success: true, data };
   } catch (e) {
+    console.error('[freelancer/payment-methods]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -115,6 +118,7 @@ export async function createPaymentMethod(payload: {
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[freelancer/create-payment-method]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -135,6 +139,7 @@ export async function deletePaymentMethod(id: string): Promise<{ success: boolea
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[freelancer/delete-payment-method]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -164,6 +169,7 @@ export async function getNotificationPrefs(): Promise<{ success: boolean; data?:
       },
     };
   } catch (e) {
+    console.error('[freelancer/notification-prefs]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -192,6 +198,7 @@ export async function saveNotificationPrefs(prefs: { paymentReminders: boolean; 
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[freelancer/save-notification-prefs]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }

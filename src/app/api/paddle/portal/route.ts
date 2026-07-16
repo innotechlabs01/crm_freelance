@@ -6,20 +6,36 @@ import { withRateLimit, rateLimitLemonsqueezy, RateLimitError } from '@/lib/rate
 
 export async function GET() {
   try {
+    // Step 1: Verify user is authenticated FIRST
     const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     return withRateLimit(userId, rateLimitLemonsqueezy, async () => {
-      const subResult = await db.execute({
-        sql: 'SELECT paddle_subscription_id FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+      // Step 2: Look up customer by user_id (never trust client-supplied customer ID)
+      const customerResult = await db.execute({
+        sql: 'SELECT customer_id FROM customers WHERE user_id = ?',
         args: [userId],
       })
 
-      const subscriptionId = subResult.rows[0]?.paddle_subscription_id as string | undefined
-      if (!subscriptionId) {
-        return NextResponse.json({ error: 'No subscription found' }, { status: 404 })
+      const customerId = customerResult.rows[0]?.customer_id as string | undefined
+      if (!customerId) {
+        return NextResponse.json({ error: 'No customer found for this user' }, { status: 404 })
       }
 
+      // Step 3: Get subscription for this user
+      const subResult = await db.execute({
+        sql: 'SELECT subscription_id FROM paddle_subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+        args: [userId],
+      })
+
+      const subscriptionId = subResult.rows[0]?.subscription_id as string | undefined
+      if (!subscriptionId) {
+        return NextResponse.json({ error: 'No active subscription found' }, { status: 404 })
+      }
+
+      // Step 4: Mint customer portal session
       const portalUrl = await paddleApi.getCustomerPortalUrl(subscriptionId)
 
       if (!portalUrl) {

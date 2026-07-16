@@ -120,6 +120,7 @@ export async function getAdminUsers(): Promise<{ success: boolean; data?: AdminU
 
     return { success: true, data: users };
   } catch (e) {
+    console.error('[admin/users]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -152,6 +153,7 @@ export async function getAdminTickets(): Promise<{ success: boolean; data?: Admi
 
     return { success: true, data };
   } catch (e) {
+    console.error('[admin/tickets]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -176,6 +178,7 @@ export async function updateTicketStatus(id: string, status: string): Promise<{ 
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[admin/update-ticket]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -213,6 +216,7 @@ export async function getAdminSubscriptions(): Promise<{ success: boolean; data?
 
     return { success: true, data };
   } catch (e) {
+    console.error('[admin/subscriptions]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -241,6 +245,7 @@ export async function getAdminIncidents(): Promise<{ success: boolean; data?: Ad
 
     return { success: true, data };
   } catch (e) {
+    console.error('[admin/incidents]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -266,6 +271,7 @@ export async function getFeatureFlags(): Promise<{ success: boolean; data?: Feat
 
     return { success: true, data };
   } catch (e) {
+    console.error('[admin/feature-flags]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -290,6 +296,7 @@ export async function toggleFeatureFlag(id: string, enabled: boolean): Promise<{
     if (e instanceof RateLimitError) {
       return { success: false, error: `Límite de solicitudes alcanzado. Intenta en ${e.retryAfter} segundos.` };
     }
+    console.error('[admin/toggle-feature-flag]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -317,6 +324,7 @@ export async function getAuditLogs(): Promise<{ success: boolean; data?: AuditLo
 
     return { success: true, data };
   } catch (e) {
+    console.error('[admin/audit-logs]', e);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
