@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
 import { TrialBanner } from '@/components/layout/trial-banner'
 import { useUser } from '@/hooks/use-user'
-import { useInactivityTimeout } from '@/hooks/use-inactivity'
+import { useSessionManager } from '@/hooks/use-session'
 import { useLanguage } from '@/lib/i18n/LanguageProvider'
 
 const PAGE_KEYS = ['dashboard', 'clientes', 'cuentas-cobro', 'pagos', 'reportes', 'calendario', 'configuracion']
@@ -22,7 +22,7 @@ export default function CRMLayout({
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const { user, plan, subscription, permissions, isLoading } = useUser()
-  useInactivityTimeout()
+  useSessionManager()
 
   const subStatus = subscription?.status || 'inactive'
   const isSubscriptionBlocked = subStatus === 'canceled' || subStatus === 'past_due' || subStatus === 'expired' || subStatus === 'paused'
